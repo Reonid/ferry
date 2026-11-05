@@ -196,6 +196,17 @@ describe("routes and destinations", () => {
   });
 });
 
+describe("releaseClaims", () => {
+  it("frees claimed keys and accepts an empty list", async () => {
+    expect(await store.claim("a", 100)).toBe(true);
+    expect(await store.claim("b", 100)).toBe(true);
+    await store.releaseClaims([]);
+    await store.releaseClaims(["a", "b"]);
+    expect(await store.claim("a", 100)).toBe(true);
+    expect(await store.claim("b", 100)).toBe(true);
+  });
+});
+
 describe("activity", () => {
   it("gets one entry by group key or null", async () => {
     expect(await store.getActivity("acct", "g")).toBeNull();

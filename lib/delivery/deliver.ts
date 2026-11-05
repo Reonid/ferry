@@ -149,18 +149,19 @@ export async function deliverToDestination(args: {
   mode?: "normal" | "test";
 }): Promise<DeliveryStatus | "skipped"> {
   const { account, destination, mirror, deps } = args;
+  const claimed: string[] = [];
   if ((args.mode ?? "normal") === "normal") {
     const groupOk = await deps.store.claim(
       `${destination.id}:group:${mirror.groupKey}`,
       CLAIM_GROUP_TTL_S,
     );
     if (!groupOk) return "skipped";
+    claimed.push(`${destination.id}:group:${mirror.groupKey}`);
     for (const postId of mirror.postIds) {
-      const ok = await deps.store.claim(
-        `${destination.id}:post:${postId}`,
-        CLAIM_POST_TTL_S,
-      );
+      const key = `${destination.id}:post:${postId}`;
+      const ok = await deps.store.claim(key, CLAIM_POST_TTL_S);
       if (!ok) return "skipped";
+      claimed.push(key);
     }
   }
 
@@ -174,7 +175,17 @@ export async function deliverToDestination(args: {
     sentCount: 0,
     failed: false,
   };
-  await deps.store.putRetry(job, deps.now() + WRITE_AHEAD_MS);
+  try {
+    await deps.store.putRetry(job, deps.now() + WRITE_AHEAD_MS);
+  } catch (err) {
+    // Without a job the held claims would drop this group for good: free them.
+    try {
+      await deps.store.releaseClaims(claimed);
+    } catch {
+      // Best effort; the original error is what matters.
+    }
+    throw err;
+  }
   await setPending(deps, account, mirror, destination.id);
   return attempt({ deps, account, destination, job });
 }
@@ -256,4 +267,26 @@ export async function runJob(args: {
   job: RetryJob;
 }): Promise<DeliveryStatus> {
   return attempt(args);
+}
+
+/** Marks a job permanently failed (kept for the Retry button) and records it in the activity. */
+export async function failJob(
+  deps: DeliverDeps,
+  job: RetryJob,
+  reason: string,
+): Promise<void> {
+  await deps.store.putRetry(
+    { ...job, failed: true },
+    deps.now() + RETRY_JOB_TTL_S * 1000,
+  );
+  const account = await deps.store.getAccount(job.accountId);
+  if (account) {
+    await setDelivery(deps, account, job.mirror, job.destinationId, (e) => ({
+      status: "failed",
+      at: deps.now(),
+      reason,
+      jobId: job.id,
+      ...(e?.url ? { url: e.url } : {}),
+    }));
+  }
 }

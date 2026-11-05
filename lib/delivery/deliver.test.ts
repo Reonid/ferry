@@ -183,6 +183,19 @@ describe("deliverToDestination", () => {
     ).toBe("pending");
   });
 
+  it("releases claims when the write-ahead fails", async () => {
+    const ctx = await setup();
+    ctx.store.putRetry = async () => {
+      throw new Error("redis down");
+    };
+    await expect(
+      ctx.run(mirror({ groupKey: "g7", postIds: ["a", "b"] })),
+    ).rejects.toThrow("redis down");
+    for (const k of ["d1:group:g7", "d1:post:a", "d1:post:b"]) {
+      expect(await ctx.store.claim(k, 10)).toBe(true);
+    }
+  });
+
   it("creates a Reddit draft and notifies the private channel", async () => {
     const ctx = await setup([], true);
     const dest = redditDest("r1");

@@ -47,6 +47,7 @@ export interface Store {
   acquireLock(name: string, ttlMs: number): Promise<string | null>;
   releaseLock(name: string, token: string): Promise<void>;
   claim(key: string, ttlSeconds: number): Promise<boolean>;
+  releaseClaims(keys: string[]): Promise<void>;
   putRetry(job: RetryJob, at: number): Promise<void>;
   getRetry(jobId: string): Promise<RetryJob | null>;
   dueRetries(now: number, limit: number): Promise<RetryJob[]>;
@@ -249,6 +250,10 @@ export function createStore(redis: RedisLike, key: Buffer): Store {
           ex: ttlSeconds,
         })) === "OK"
       );
+    },
+
+    async releaseClaims(keys) {
+      await del(...keys.map(k.claim));
     },
 
     async putRetry(job, at) {

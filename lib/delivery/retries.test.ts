@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { deliverToDestination } from "./deliver";
 import { processRetries, retryFailedJob } from "./retries";
 import { NOW, account, discordDest, makeDeps, mirror } from "./test-support";
-import { WRITE_AHEAD_MS } from "../constants";
+import { MAX_ATTEMPTS, WRITE_AHEAD_MS } from "../constants";
 import type { DeliveryOutcome } from "../types";
 
 const fail = (over = {}) =>
@@ -101,6 +101,63 @@ describe("processRetries", () => {
     for (const id of ["a", "b", "c"]) {
       expect(await ctx.store.getRetry(id)).toBeNull();
     }
+  });
+});
+
+describe("throwing dispatches", () => {
+  it("caps attempts when dispatch keeps throwing", async () => {
+    const ctx = await setup();
+    const real = ctx.deps.sendDiscord;
+    ctx.deps.sendDiscord = async () => {
+      throw new Error("crash");
+    };
+    await expect(ctx.run()).rejects.toThrow("crash");
+    for (let i = 0; i < MAX_ATTEMPTS; i++) {
+      await expect(
+        processRetries({ now: NOW + WRITE_AHEAD_MS, deps: ctx.deps }),
+      ).rejects.toThrow("crash");
+    }
+    ctx.deps.sendDiscord = real;
+    const job = await ctx.store.getRetry("d1|g1");
+    expect(job).toMatchObject({ failed: true, attempts: MAX_ATTEMPTS });
+    expect(
+      await ctx.store.dueRetries(NOW + WRITE_AHEAD_MS * 100, 10),
+    ).toHaveLength(0);
+    expect(
+      (await ctx.store.getActivity("acct", "g1"))?.deliveries[0],
+    ).toMatchObject({
+      status: "failed",
+      reason: "Unexpected error while delivering.",
+      jobId: "d1|g1",
+    });
+  });
+
+  it("keeps processing other jobs when one throws", async () => {
+    const ctx = await setup();
+    const mk = (id: string) => ({
+      id: `d1|${id}`,
+      accountId: "acct",
+      destinationId: "d1",
+      groupKey: id,
+      mirror: mirror({ groupKey: id }),
+      attempts: 0,
+      sentCount: 0,
+      failed: false,
+    });
+    await ctx.store.putRetry(mk("one"), NOW);
+    await ctx.store.putRetry(mk("two"), NOW + 1);
+    let n = 0;
+    ctx.deps.sendDiscord = async (a) => {
+      ctx.calls.push(a);
+      if (++n === 1) throw new Error("first");
+      return { ok: true };
+    };
+    await expect(
+      processRetries({ now: NOW + 1, deps: ctx.deps }),
+    ).rejects.toThrow("first");
+    expect(ctx.calls).toHaveLength(2);
+    expect(await ctx.store.getRetry("d1|two")).toBeNull();
+    expect(await ctx.store.getRetry("d1|one")).not.toBeNull();
   });
 });
 
