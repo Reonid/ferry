@@ -1,0 +1,16 @@
+# Working documents (private: strategy and plans stay off the public repo)
+docs/superpowers/
+.superpowers/
+
+# Dependencies and builds
+node_modules/
+.next/
+out/
+build/
+
+# Local environment
+.env*
+!.env.example
+
+# OS
+.DS_Store
