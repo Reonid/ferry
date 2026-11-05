@@ -21,9 +21,9 @@
     "@upstash/qstash": "^2.12.1",
     "@upstash/redis": "^1.41.0",
     "iron-session": "^8.0.4",
-    "next": "^16.3.1",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "next": "16.3.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",
@@ -32,7 +32,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "eslint": "^9.39.5",
-    "eslint-config-next": "^16.3.1",
+    "eslint-config-next": "16.3.1",
     "eslint-config-prettier": "^10.1.8",
     "graphql": "^17.0.2",
     "prettier": "^3.9.10",
