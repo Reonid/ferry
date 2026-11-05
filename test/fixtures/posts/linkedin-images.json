@@ -1,0 +1,40 @@
+{
+  "r0": {
+    "edges": [
+      {
+        "node": {
+          "id": "p-li-1",
+          "status": "sent",
+          "text": "Photos from the launch",
+          "dueAt": "2026-11-03T08:00:00.000Z",
+          "sentAt": "2026-11-03T08:00:05.000Z",
+          "channelId": "ch-li",
+          "channelService": "linkedin",
+          "contentItemId": null,
+          "externalLink": null,
+          "tags": [],
+          "error": null,
+          "assets": [
+            {
+              "type": "image",
+              "source": "https://img.example/1.jpg",
+              "thumbnail": "https://img.example/1-t.jpg",
+              "mimeType": "image/jpeg",
+              "image": { "altText": "Team on stage" }
+            },
+            {
+              "type": "image",
+              "source": "https://img.example/2.jpg",
+              "thumbnail": "https://img.example/2-t.jpg",
+              "mimeType": "image/jpeg",
+              "image": { "altText": null }
+            }
+          ],
+          "metadata": { "linkAttachment": null }
+        }
+      }
+    ]
+  },
+  "u0": { "edges": [] },
+  "c0": []
+}

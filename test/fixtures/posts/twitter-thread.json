@@ -1,0 +1,42 @@
+{
+  "r0": {
+    "edges": [
+      {
+        "node": {
+          "id": "p-tw-1",
+          "status": "sent",
+          "text": "Shipping Ferry today",
+          "dueAt": "2026-11-01T09:00:00.000Z",
+          "sentAt": "2026-11-01T09:00:03.000Z",
+          "channelId": "ch-tw",
+          "channelService": "twitter",
+          "contentItemId": null,
+          "externalLink": "https://x.com/leon/status/1",
+          "tags": [{ "id": "t1", "name": "launch" }],
+          "error": null,
+          "assets": [],
+          "metadata": {
+            "thread": [
+              { "text": "Shipping Ferry today", "assets": [] },
+              {
+                "text": "It mirrors posts into Discord.",
+                "assets": [
+                  {
+                    "type": "image",
+                    "source": "https://img.example/a.png",
+                    "thumbnail": "https://img.example/a-t.png",
+                    "mimeType": "image/png",
+                    "image": { "altText": "A ferry" }
+                  }
+                ]
+              },
+              { "text": "Read-only, always.", "assets": [] }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "u0": { "edges": [] },
+  "c0": []
+}

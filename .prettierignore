@@ -6,3 +6,4 @@ test-results/
 certificates/
 .superpowers/
 docs/superpowers/
+test/fixtures/buffer-schema.json
