@@ -42,6 +42,35 @@ describe("escapeDiscordMarkdown", () => {
     );
   });
 
+  it("breaks masked links", () => {
+    expect(escapeDiscordMarkdown("[click](https://evil.example)")).toBe(
+      "\\[click\\](https://evil.example)",
+    );
+  });
+
+  it("escapes markup around a URL", () => {
+    expect(escapeDiscordMarkdown("**https://x.com**")).toBe(
+      "\\*\\*https://x.com\\*\\*",
+    );
+    expect(escapeDiscordMarkdown("||https://x.com||")).toBe(
+      "\\|\\|https://x.com\\|\\|",
+    );
+  });
+
+  it("keeps balanced parentheses in URLs", () => {
+    const u = "https://en.wikipedia.org/wiki/Foo_(bar)";
+    expect(escapeDiscordMarkdown(u)).toBe(u);
+  });
+
+  it("trims an unbalanced closing parenthesis", () => {
+    expect(escapeDiscordMarkdown("(see https://x.com/a)")).toBe(
+      "(see https://x.com/a)",
+    );
+    expect(escapeDiscordMarkdown("(see https://x.com/a_)")).toBe(
+      "(see https://x.com/a\\_)",
+    );
+  });
+
   it("escapes backticks, pipes, tildes, -# and >>>", () => {
     expect(escapeDiscordMarkdown("`a` ~b~ ||c||")).toBe(
       "\\`a\\` \\~b\\~ \\|\\|c\\|\\|",

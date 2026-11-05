@@ -26,8 +26,9 @@ export function escapeDiscordMarkdown(text: string): string {
       let out = "";
       let last = 0;
       for (const m of line.matchAll(URL_SPAN)) {
-        out += escapeInline(line.slice(last, m.index)) + m[0];
-        last = m.index + m[0].length;
+        const url = trimUrlSpan(m[0]);
+        out += escapeInline(line.slice(last, m.index)) + url;
+        last = m.index + url.length;
       }
       out += escapeInline(line.slice(last));
       return out.replace(/^(\s*)(>>>|> |#{1,3} |-# )/, "$1\\$2");
@@ -36,7 +37,28 @@ export function escapeDiscordMarkdown(text: string): string {
 }
 
 function escapeInline(s: string): string {
-  return s.replace(/[\\*_~`|]/g, "\\$&");
+  return s.replace(/[\\*_~`|[\]]/g, "\\$&");
+}
+
+/** Drops trailing markdown and unbalanced ")" that are not part of the URL. */
+function trimUrlSpan(span: string): string {
+  let url = span;
+  for (;;) {
+    const next = url.replace(/[*_~|`]+$/, "");
+    if (next !== url) {
+      url = next;
+      continue;
+    }
+    if (url.endsWith(")")) {
+      const close = url.split(")").length - 1;
+      const open = url.split("(").length - 1;
+      if (close > open) {
+        url = url.slice(0, -1);
+        continue;
+      }
+    }
+    return url;
+  }
 }
 
 function packParts(parts: string[], sep: string, max: number): string[] {
