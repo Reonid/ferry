@@ -32,12 +32,12 @@ export const CHANNELS_QUERY = `query Channels($org: OrganizationId!) {
 }
 ${CHANNEL_FIELDS}`;
 
-export const LATEST_SENT_QUERY = `query LatestSent($org: OrganizationId!, $ch: ChannelId!) {
+export const LATEST_SENT_QUERY = `query LatestSent($org: OrganizationId!, $ch: [ChannelId!]) {
   posts(
     first: 1
     input: {
       organizationId: $org
-      filter: { channelIds: [$ch], status: [sent] }
+      filter: { channelIds: $ch, status: [sent] }
       sort: [{ field: dueAt, direction: desc }]
     }
   ) {

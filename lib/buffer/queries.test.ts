@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { buildClientSchema, parse, validate } from "graphql";
+import { buildClientSchema, Kind, parse, print, validate } from "graphql";
 import { describe, expect, it } from "vitest";
 import {
   ACCOUNT_QUERY,
@@ -49,5 +49,18 @@ describe("syncVariables", () => {
       o1: "o-b",
       ch1: [],
     });
+  });
+});
+
+describe("LATEST_SENT_QUERY", () => {
+  it("takes a list of channel ids", () => {
+    const op = parse(LATEST_SENT_QUERY).definitions.find(
+      (d) => d.kind === Kind.OPERATION_DEFINITION,
+    );
+    const ch =
+      op?.kind === Kind.OPERATION_DEFINITION
+        ? op.variableDefinitions?.find((v) => v.variable.name.value === "ch")
+        : undefined;
+    expect(ch && print(ch.type)).toBe("[ChannelId!]");
   });
 });
