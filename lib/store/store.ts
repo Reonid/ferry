@@ -256,16 +256,33 @@ export function createStore(redis: RedisLike, key: Buffer): Store {
     },
     getRetry: (jobId) => getJson<RetryJob>(k.retry(jobId)),
     async dueRetries(now, limit) {
-      if (limit <= 0) return [];
-      const ids = await redis.zrange(k.retryDue, "-inf", now, {
-        byScore: true,
-        offset: 0,
-        count: limit,
-      });
-      const jobs = await mgetJson<RetryJob>(ids.map(k.retry));
-      const stale = ids.filter((_, i) => jobs[i] === null);
-      if (stale.length > 0) await redis.zrem(k.retryDue, ...stale);
-      return jobs.filter((j): j is RetryJob => j !== null && !j.failed);
+      // Healthy due jobs stay at the front of the due range, so each page
+      // starts after them. Failed jobs are re-scored past the TTL (their job
+      // key stays for getRetry and deleteAccountData) and stale members are
+      // pruned, so every page makes progress. Bounded at 5 pages per call.
+      const healthy: RetryJob[] = [];
+      for (let page = 0; page < 5 && healthy.length < limit; page++) {
+        const ids = await redis.zrange(k.retryDue, "-inf", now, {
+          byScore: true,
+          offset: healthy.length,
+          count: limit - healthy.length,
+        });
+        if (ids.length === 0) break;
+        const jobs = await mgetJson<RetryJob>(ids.map(k.retry));
+        const stale: string[] = [];
+        for (const [i, id] of ids.entries()) {
+          const job = jobs[i];
+          if (job === null || job === undefined) stale.push(id);
+          else if (job.failed) {
+            await redis.zadd(k.retryDue, {
+              score: now + RETRY_JOB_TTL_S * 1000,
+              member: id,
+            });
+          } else healthy.push(job);
+        }
+        if (stale.length > 0) await redis.zrem(k.retryDue, ...stale);
+      }
+      return healthy;
     },
     async deleteRetry(jobId) {
       await redis.zrem(k.retryDue, jobId);

@@ -257,6 +257,28 @@ describe("alerts", () => {
 });
 
 describe("retries", () => {
+  it("doesn't let failed jobs starve due ones", async () => {
+    for (let i = 0; i < 3; i++) {
+      await store.putRetry({ ...job(`f${i}`, "acct", "d1"), failed: true }, i);
+    }
+    await store.putRetry(job("ok", "acct", "d1"), 100);
+    expect((await store.dueRetries(1000, 3)).map((j) => j.id)).toEqual(["ok"]);
+    expect(await redis.zrange("ferry:retry:due", 0, -1)).toEqual([
+      "ok",
+      "f0",
+      "f1",
+      "f2",
+    ]);
+    expect(
+      await redis.zrange("ferry:retry:due", "-inf", 1000, {
+        byScore: true,
+        offset: 0,
+        count: 10,
+      }),
+    ).toEqual(["ok"]);
+    expect((await store.getRetry("f0"))?.failed).toBe(true);
+  });
+
   it("skips failed retry jobs", async () => {
     await store.putRetry(job("ok", "acct", "d1"), 100);
     await store.putRetry({ ...job("bad", "acct", "d1"), failed: true }, 50);
