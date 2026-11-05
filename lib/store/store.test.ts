@@ -197,6 +197,12 @@ describe("routes and destinations", () => {
 });
 
 describe("activity", () => {
+  it("gets one entry by group key or null", async () => {
+    expect(await store.getActivity("acct", "g")).toBeNull();
+    await store.upsertActivity("acct", entry("g", 100));
+    expect(await store.getActivity("acct", "g")).toEqual(entry("g", 100));
+  });
+
   it("lists activity newest first and skips expired entries", async () => {
     await store.upsertActivity("acct", entry("old", 100));
     await store.upsertActivity("acct", entry("new", 300));

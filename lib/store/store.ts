@@ -52,6 +52,7 @@ export interface Store {
   dueRetries(now: number, limit: number): Promise<RetryJob[]>;
   deleteRetry(jobId: string): Promise<void>;
   upsertActivity(id: string, entry: ActivityEntry): Promise<void>;
+  getActivity(id: string, groupKey: string): Promise<ActivityEntry | null>;
   listActivity(id: string, limit: number): Promise<ActivityEntry[]>;
   putDraft(d: RedditDraft): Promise<void>;
   getDraft(token: string): Promise<RedditDraft | null>;
@@ -296,6 +297,7 @@ export function createStore(redis: RedisLike, key: Buffer): Store {
         member: entry.groupKey,
       });
     },
+    getActivity: (id, groupKey) => getJson<ActivityEntry>(k.act(id, groupKey)),
     listActivity: (id, limit) =>
       listIndexed<ActivityEntry>(k.acts(id), (g) => k.act(id, g), limit),
 
