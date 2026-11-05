@@ -1,8 +1,8 @@
 import type { TokenSet } from "@/lib/types";
+import { TOKEN_REQUEST_TIMEOUT_MS } from "@/lib/constants";
 
 const AUTHORIZE_URL = "https://auth.buffer.com/auth";
 const TOKEN_URL = "https://auth.buffer.com/token";
-const TIMEOUT_MS = 15_000;
 
 /** Read-only on purpose: Ferry never writes to Buffer. */
 export const BUFFER_SCOPE = "account:read posts:read offline_access";
@@ -50,7 +50,7 @@ async function tokenRequest(
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams(form),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: AbortSignal.timeout(TOKEN_REQUEST_TIMEOUT_MS),
     });
   } catch {
     throw new OAuthError("bad_response");

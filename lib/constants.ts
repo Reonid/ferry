@@ -40,3 +40,6 @@ export const SEND_LATEST_COOLDOWN_MS = 30 * SECOND;
 export const TOKEN_REFRESH_MARGIN_MS = 2 * MINUTE;
 export const LOCK_SYNC_MS = 60 * SECOND;
 export const LOCK_REFRESH_MS = 15 * SECOND;
+
+// Must stay well inside LOCK_REFRESH_MS: refresh tokens are single-use, so the lock must outlive the request.
+export const TOKEN_REQUEST_TIMEOUT_MS = 10 * SECOND;

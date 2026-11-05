@@ -3,11 +3,19 @@ import {
   HEARTBEAT_FALLBACK_MS,
   HEARTBEAT_MAX_MS,
   HEARTBEAT_MIN_MS,
+  LOCK_REFRESH_MS,
   MAX_ATTEMPTS,
   RETRY_DELAYS_MS,
+  TOKEN_REQUEST_TIMEOUT_MS,
 } from "@/lib/constants";
 
 describe("constants", () => {
+  it("keeps the token request well inside the refresh lock", () => {
+    expect(TOKEN_REQUEST_TIMEOUT_MS + 5 * 1000).toBeLessThanOrEqual(
+      LOCK_REFRESH_MS,
+    );
+  });
+
   it("keeps retry delays aligned with max attempts", () => {
     expect(RETRY_DELAYS_MS).toHaveLength(MAX_ATTEMPTS - 1);
   });
