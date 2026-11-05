@@ -18,7 +18,7 @@ export function buildDraftNotice(
             type: 2,
             style: 5,
             label: `Post to r/${sub}`,
-            url: draft.submitUrl,
+            url: `${draftPageUrl}/post`,
           },
           { type: 2, style: 5, label: "Open draft", url: draftPageUrl },
         ],

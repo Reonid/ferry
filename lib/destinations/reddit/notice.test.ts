@@ -31,7 +31,7 @@ describe("buildDraftNotice", () => {
             type: 2,
             style: 5,
             label: "Post to r/SideProject",
-            url: draft.submitUrl,
+            url: "https://ferry.app/draft/t/post",
           },
           {
             type: 2,
@@ -42,5 +42,16 @@ describe("buildDraftNotice", () => {
         ],
       },
     ]);
+  });
+
+  it("keeps button URLs under Discord's 512-character limit", () => {
+    const long = {
+      ...draft,
+      submitUrl: `https://www.reddit.com/r/SideProject/submit?text=${"a".repeat(3000)}`,
+    };
+    const m = buildDraftNotice(long, "https://ferry.app/draft/t");
+    const row = m.components![0] as { components: { url: string }[] };
+    for (const b of row.components)
+      expect(b.url.length).toBeLessThanOrEqual(512);
   });
 });

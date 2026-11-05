@@ -16,7 +16,11 @@ function clean(s: string): string {
 
 function truncateTitle(title: string): string {
   if (title.length <= REDDIT_TITLE_MAX) return title;
-  const head = title.slice(0, REDDIT_TITLE_MAX - 1);
+  let head = "";
+  for (const ch of title) {
+    if (head.length + ch.length > REDDIT_TITLE_MAX - 1) break;
+    head += ch;
+  }
   const space = head.lastIndexOf(" ");
   return `${(space > 0 ? head.slice(0, space) : head).trimEnd()}…`;
 }

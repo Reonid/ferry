@@ -37,6 +37,21 @@ describe("draftTitle", () => {
     expect(t.length).toBeLessThanOrEqual(120);
     expect(t.endsWith("…")).toBe(true);
   });
+  it("cuts long emoji titles without breaking characters", () => {
+    const p = post({ text: "😀".repeat(200) });
+    const t = draftTitle(p);
+    expect(t.length).toBeLessThanOrEqual(120);
+    expect(t.isWellFormed()).toBe(true);
+    expect(() => encodeURIComponent(t)).not.toThrow();
+    const d = buildRedditDraft({
+      post: p,
+      subreddit: "x1",
+      accountId: "a",
+      token: "t",
+      now: 1,
+    });
+    expect(d.title).toBe(t);
+  });
   it("falls back to the link title, then the source name", () => {
     const link = {
       url: "https://x.com",
