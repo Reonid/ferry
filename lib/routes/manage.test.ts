@@ -1,8 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
+import { ACCOUNT_QUERY } from "../buffer/queries";
 import { SEND_LATEST_COOLDOWN_MS } from "../constants";
 import { account, discordDest, redditDest } from "../delivery/test-support";
 import { runSync } from "../sync/runner";
-import { channel, makeSyncDeps, NOW, rawPost } from "../sync/test-support";
+import {
+  BufferError,
+  channel,
+  makeSyncDeps,
+  NOW,
+  rawPost,
+} from "../sync/test-support";
 import {
   addDiscordDestination,
   addRedditDestination,
@@ -412,6 +419,77 @@ describe("refreshChannels", () => {
     expect(ids).toEqual(["keep", "new-org", "new-org2"]);
     expect(await store.getApiCalls("acct", "1970-01-01")).toBe(2);
   });
+});
+
+describe("actions that call Buffer", () => {
+  const REAUTH = "Buffer disconnected Ferry. Sign in again.";
+  const WAITING =
+    "Ferry is waiting on Buffer's rate limit. Try again in a few minutes.";
+  const actions = {
+    sendLatestPost: async () => {
+      const ctx = await seedSend();
+      ctx.buffer.mockResolvedValue({
+        data: { posts: { edges: [{ node: rawPost() }] } },
+        rateLimit: null,
+      });
+      return {
+        ...ctx,
+        run: () => sendLatestPost(ctx.deps, "acct", ctx.routeId),
+      };
+    },
+    refreshChannels: async () => {
+      const ctx = makeSyncDeps();
+      await ctx.store.putAccount(account());
+      ctx.buffer.mockImplementation(async ({ query }) => ({
+        data:
+          query === ACCOUNT_QUERY
+            ? { account: { id: "acct", organizations: [{ id: "org" }] } }
+            : { channels: [] },
+        rateLimit: null,
+      }));
+      return { ...ctx, run: () => refreshChannels(ctx.deps, "acct") };
+    },
+  };
+
+  for (const [name, setup] of Object.entries(actions)) {
+    describe(name, () => {
+      it("marks the account for sign-in when Buffer rejects Ferry", async () => {
+        const { store, buffer, run } = await setup();
+        buffer.mockRejectedValue(
+          new BufferError("nope", { kind: "auth", status: 401 }),
+        );
+        expect(await run()).toEqual({ ok: false, error: REAUTH });
+        expect((await store.getAccount("acct"))?.status).toBe("needs_reauth");
+      });
+
+      it("asks to sign in again without calling Buffer", async () => {
+        const { store, buffer, run } = await setup();
+        await store.putAccount(account({ status: "needs_reauth" }));
+        expect(await run()).toEqual({ ok: false, error: REAUTH });
+        expect(buffer).not.toHaveBeenCalled();
+      });
+
+      it("waits out Buffer's rate limit without calling Buffer", async () => {
+        const { store, buffer, run } = await setup();
+        await store.putSyncState("acct", {
+          ...(await store.getSyncState("acct")),
+          retryAt: NOW + 1,
+        });
+        expect(await run()).toEqual({ ok: false, error: WAITING });
+        expect(buffer).not.toHaveBeenCalled();
+      });
+
+      it("goes ahead once retryAt has passed", async () => {
+        const { store, buffer, run } = await setup();
+        await store.putSyncState("acct", {
+          ...(await store.getSyncState("acct")),
+          retryAt: NOW,
+        });
+        expect((await run()).ok).toBe(true);
+        expect(buffer).toHaveBeenCalled();
+      });
+    });
+  }
 });
 
 describe("retryJob", () => {

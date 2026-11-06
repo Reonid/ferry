@@ -12,11 +12,13 @@ import type { Store } from "../store/store";
 import type { SyncDeps } from "../sync/runner";
 import { dayKey } from "../time";
 import type {
+  Account,
   Channel,
   Destination,
   DiscordDestination,
   RedditDestination,
   Route,
+  SyncState,
 } from "../types";
 
 export type ActionResult =
@@ -27,6 +29,9 @@ const MAX_TAGS = 10;
 const MAX_LABEL = 60;
 const RECONNECT = "Reconnect this destination first.";
 const REFRESH_CHANNELS = "Refresh your channels and try again.";
+const SIGN_IN_AGAIN = "Buffer disconnected Ferry. Sign in again.";
+const RATE_LIMITED =
+  "Ferry is waiting on Buffer's rate limit. Try again in a few minutes.";
 
 export function validateRouteInput(args: {
   channelIds: string[];
@@ -234,7 +239,26 @@ export async function setNotifyDestination(
   return { ok: true };
 }
 
-function buffersFailure(err: unknown): ActionResult | null {
+/** Why an action shouldn't call Buffer now, or null when it may. */
+function bufferBlocked(
+  account: Account,
+  state: SyncState,
+  now: number,
+): ActionResult | null {
+  if (account.status === "needs_reauth") return fail(SIGN_IN_AGAIN);
+  if (state.retryAt !== null && state.retryAt > now) return fail(RATE_LIMITED);
+  return null;
+}
+
+async function buffersFailure(
+  store: Store,
+  account: Account,
+  err: unknown,
+): Promise<ActionResult | null> {
+  if (err instanceof BufferError && err.kind === "auth") {
+    await store.putAccount({ ...account, status: "needs_reauth" });
+    return fail(SIGN_IN_AGAIN);
+  }
   if (err instanceof BufferError || err instanceof TokenBusyError)
     return fail("Couldn't reach Buffer. Try again in a moment.");
   return null;
@@ -260,6 +284,8 @@ export async function sendLatestPost(
 
   const now = deps.now();
   const state = await store.getSyncState(accountId);
+  const blocked = bufferBlocked(account, state, now);
+  if (blocked) return blocked;
   if (
     state.lastSendLatestAt !== null &&
     now - state.lastSendLatestAt < SEND_LATEST_COOLDOWN_MS
@@ -298,7 +324,7 @@ export async function sendLatestPost(
       ? (edges[0] as { node?: unknown } | undefined)?.node
       : undefined;
   } catch (err) {
-    const known = buffersFailure(err);
+    const known = await buffersFailure(store, account, err);
     if (known) return known;
     throw err;
   }
@@ -336,6 +362,12 @@ export async function refreshChannels(
   const account = await store.getAccount(accountId);
   if (!account) return fail("Sign in again to refresh.");
   const now = deps.now();
+  const blocked = bufferBlocked(
+    account,
+    await store.getSyncState(accountId),
+    now,
+  );
+  if (blocked) return blocked;
   const fresh: Channel[] = [];
   try {
     const accessToken = await deps.getAccessToken(accountId);
@@ -355,7 +387,7 @@ export async function refreshChannels(
         }
     }
   } catch (err) {
-    const known = buffersFailure(err);
+    const known = await buffersFailure(store, account, err);
     if (known) return known;
     throw err;
   }
