@@ -11,7 +11,7 @@
   - Discord authorize `https://discord.com/oauth2/authorize`, token `https://discord.com/api/oauth2/token`, execute `https://discord.com/api/webhooks/{id}/{token}`.
 - Every Redis key starts with `ferry:`. Stored times are epoch milliseconds. Fields copied from Buffer keep Buffer's ISO strings.
 - Pure modules take the clock as a parameter and never call `Date.now()`: `lib/routing/*`, `lib/mirror/*`, `lib/sync/planner.ts`, `lib/sync/budget.ts`, `lib/destinations/*/format.ts`, `lib/destinations/reddit/draft.ts`.
-- Tokens, Discord webhook tokens and post text are never logged and never sent to the browser.
+- Tokens, Discord webhook tokens and post text are never logged. OAuth tokens and webhook tokens never reach the browser. The signed-in owner's own dashboard may show their own post excerpts and Reddit drafts.
 - The product name is "Ferry". Every page's footer reads exactly: "Ferry is an independent project built on the Buffer API. It is not affiliated with or endorsed by Buffer."
 - Accessibility: full keyboard path, visible focus, WCAG AA in light and dark, `prefers-reduced-motion` respected, live updates through `aria-live="polite"`.
 - Small conventional commits (`feat:`, `fix:`, `test:`, `chore:`, `docs:`, `ci:`). Stage files by name, never `git add -A`. Every commit leaves `npm run lint`, `npm run typecheck` and `npm test` green.
