@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { randomBytes } from "node:crypto";
-import { ACTIVITY_TTL_S, DRAFT_TTL_S } from "@/lib/constants";
+import {
+  ACTIVITY_TTL_S,
+  ALERT_DEDUPE_TTL_S,
+  DRAFT_TTL_S,
+} from "@/lib/constants";
 import { createFakeRedis } from "./fake-redis";
 import type { RedisLike } from "./redis-like";
 import { createStore, type Store } from "./store";
@@ -343,6 +347,30 @@ describe("alerts", () => {
     expect(await store.listAlerts("acct", 10)).toHaveLength(1);
     await store.clearAlertKey("acct", "k");
     expect(await store.raiseAlertOnce("acct", alert("k"))).toBe(true);
+    expect(await store.listAlerts("acct", 10)).toHaveLength(1);
+  });
+
+  it("clearing an alert key removes it from the list", async () => {
+    await store.raiseAlertOnce("acct", alert("k", 1));
+    // Once the marker expires, a lasting problem is listed a second time.
+    vi.advanceTimersByTime(ALERT_DEDUPE_TTL_S * 1000);
+    await store.raiseAlertOnce("acct", alert("other", 2));
+    await store.raiseAlertOnce("acct", alert("k", 3));
+    await store.raiseAlertOnce("b", alert("k", 4));
+    expect((await store.listAlerts("acct", 10)).map((a) => a.key)).toEqual([
+      "k",
+      "other",
+      "k",
+    ]);
+
+    await store.clearAlertKey("acct", "k");
+    expect((await store.listAlerts("acct", 10)).map((a) => a.key)).toEqual([
+      "other",
+    ]);
+    expect((await store.listAlerts("b", 10)).map((a) => a.key)).toEqual(["k"]);
+    expect(await store.raiseAlertOnce("acct", alert("k", 5))).toBe(true);
+
+    await store.clearAlertKey("acct", "missing");
     expect(await store.listAlerts("acct", 10)).toHaveLength(2);
   });
 

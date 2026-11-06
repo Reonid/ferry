@@ -189,6 +189,26 @@ describe("runSync", () => {
     ).toBe(true);
   });
 
+  it("a healthy channel clears its earlier alert from the list", async () => {
+    const { deps, store } = makeSyncDeps({ channels: [channel()] });
+    await seed(store);
+    for (const [at, key] of [
+      "chan-disconnected:ch",
+      "chan-paused:ch",
+      "chan-paused:elsewhere",
+    ].entries())
+      await store.raiseAlertOnce("acct", {
+        key,
+        message: key,
+        supportUrl: null,
+        at,
+      });
+    await runSync("acct", deps);
+    expect((await store.listAlerts("acct", 10)).map((a) => a.key)).toEqual([
+      "chan-paused:elsewhere",
+    ]);
+  });
+
   it("alerts for an error post with Buffer's help link", async () => {
     const { deps, store } = makeSyncDeps({
       posts: [

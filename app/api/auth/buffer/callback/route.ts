@@ -5,6 +5,7 @@ import {
   OAUTH_STATE_COOKIE,
   OAUTH_VERIFIER_COOKIE,
 } from "@/lib/auth/buffer-oauth";
+import { saveSignIn } from "@/lib/auth/sign-in";
 import { bufferRequest } from "@/lib/buffer/client";
 import { mapAccount, mapChannel } from "@/lib/buffer/map";
 import { ACCOUNT_QUERY, CHANNELS_QUERY } from "@/lib/buffer/queries";
@@ -61,19 +62,7 @@ async function signIn(request: NextRequest): Promise<void> {
       }
   }
 
-  const store = getStore();
-  const existing = await store.getAccount(info.accountId);
-  await store.putAccount({
-    accountId: info.accountId,
-    name: info.name,
-    timezone: info.timezone,
-    organizationIds: info.organizationIds,
-    status: "active",
-    notifyDestinationId: existing?.notifyDestinationId ?? null,
-    createdAt: existing?.createdAt ?? now,
-  });
-  await store.putTokens(info.accountId, tokens);
-  await store.putChannels(info.accountId, channels);
+  await saveSignIn(getStore(), { info, tokens, channels, now });
 
   const session = await getSession();
   session.accountId = info.accountId;

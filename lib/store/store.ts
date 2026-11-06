@@ -365,6 +365,10 @@ export function createStore(redis: RedisLike, key: Buffer): Store {
     },
     async clearAlertKey(id, alertKey) {
       await del(k.alertKey(id, alertKey));
+      // The problem is over, so its alerts leave the list too.
+      const all = (await getJson<Alert[]>(k.alerts(id))) ?? [];
+      const kept = all.filter((a) => a.key !== alertKey);
+      if (kept.length < all.length) await setJson(k.alerts(id), kept);
     },
     async listAlerts(id, limit) {
       const all = (await getJson<Alert[]>(k.alerts(id))) ?? [];
