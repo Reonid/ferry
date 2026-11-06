@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { LIVE_POLL_MS } from "@/lib/constants";
 import type { DashboardSnapshot } from "@/lib/dashboard/snapshot";
+import SiteHeader from "../components/SiteHeader";
 import Activity from "./Activity";
 import Alerts, { Banner, type Notice } from "./Alerts";
 import CrossingMap from "./CrossingMap";
-import { DECK, HULL } from "./crossing";
 import Destinations from "./Destinations";
 import DraftsTray from "./DraftsTray";
 import RouteList from "./RouteList";
@@ -97,19 +97,6 @@ function useClock(start: number): number {
   return now;
 }
 
-function BrandMark() {
-  return (
-    <svg className={styles.mark} viewBox="-27 -9 42 18" aria-hidden="true">
-      <path
-        className={styles.markWake}
-        d="M -15 -2.6 L -25 -7 M -15 2.6 L -25 7"
-      />
-      <path className={styles.markHull} d={HULL} />
-      <path className={styles.markDeck} d={DECK} />
-    </svg>
-  );
-}
-
 export default function Dashboard({
   snapshot,
   renderedAt,
@@ -147,19 +134,13 @@ export default function Dashboard({
 
   return (
     <>
-      <header className={styles.header}>
-        <div className={styles.bar}>
-          <h1 className={styles.brand}>
-            <BrandMark />
-            Ferry
-          </h1>
-          <nav aria-label="Dashboard" className={styles.nav}>
-            <a href="#routes">Routes</a>
-            <a href="#activity">Activity</a>
-            <a href="#settings">Settings</a>
-          </nav>
-        </div>
-      </header>
+      <SiteHeader brand="heading">
+        <nav aria-label="Dashboard" className={styles.nav}>
+          <a href="#routes">Routes</a>
+          <a href="#activity">Activity</a>
+          <a href="#settings">Settings</a>
+        </nav>
+      </SiteHeader>
       <main className={styles.main}>
         <Banner
           needsReauth={live.account.status === "needs_reauth"}

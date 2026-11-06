@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+import { tabTo } from "./keyboard";
 
 const TIMING_NOTE =
   "Scheduled posts cross within about 3 minutes, or about a minute while Ferry is open. Posts you publish right away can take longer unless Ferry is open.";
@@ -12,26 +13,6 @@ async function openDashboard(page: Page): Promise<void> {
   await page.goto("/api/dev/login");
   await expect(page).toHaveURL(/\/app$/);
   await polled;
-}
-
-/** Presses Tab until `target` has focus, then checks the focus ring is visible. */
-async function tabTo(page: Page, target: Locator, max = 80): Promise<void> {
-  for (let i = 0; i < max; i++) {
-    await page.keyboard.press("Tab");
-    if (await target.evaluate((el) => el === document.activeElement)) {
-      const ring = await target.evaluate((el) => {
-        const style = getComputedStyle(el);
-        return {
-          style: style.outlineStyle,
-          width: parseFloat(style.outlineWidth),
-        };
-      });
-      expect(ring.style, "focus ring style").not.toBe("none");
-      expect(ring.width, "focus ring width").toBeGreaterThanOrEqual(2);
-      return;
-    }
-  }
-  throw new Error(`Tab never reached ${target.toString()}`);
 }
 
 type Snapshot = Record<string, unknown> & {

@@ -1,0 +1,32 @@
+.header {
+  border-bottom: 1px solid var(--rule);
+}
+
+.bar {
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: var(--space-3) var(--gutter);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+/* The wordmark is a name on the water, so it is set in the chart's italic. */
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--ink);
+  font-family: var(--font-water);
+  font-style: italic;
+  font-weight: 600;
+  font-size: var(--text-xl);
+  line-height: 1.2;
+  text-decoration: none;
+}
+
+a.brand:hover {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+}
