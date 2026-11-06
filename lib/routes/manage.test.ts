@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { SEND_LATEST_COOLDOWN_MS } from "../constants";
 import { account, discordDest, redditDest } from "../delivery/test-support";
+import { runSync } from "../sync/runner";
 import { channel, makeSyncDeps, NOW, rawPost } from "../sync/test-support";
 import {
   addDiscordDestination,
@@ -106,7 +107,9 @@ describe("routes", () => {
       paused: false,
       createdAt: 1,
     });
-    expect((await setRoutePaused(store, "acct", "r1", true)).ok).toBe(false);
+    expect((await setRoutePaused(store, "acct", "r1", true, NOW)).ok).toBe(
+      false,
+    );
     expect((await deleteRoute(store, "acct", "r1")).ok).toBe(false);
     expect((await store.getRoute("r1"))?.paused).toBe(false);
   });
@@ -123,10 +126,49 @@ describe("routes", () => {
       NOW,
     );
     const [route] = await store.listRoutes("acct");
-    await setRoutePaused(store, "acct", route!.id, true);
+    await setRoutePaused(store, "acct", route!.id, true, NOW);
     expect((await store.getRoute(route!.id))?.paused).toBe(true);
     await deleteRoute(store, "acct", route!.id);
     expect(await store.listRoutes("acct")).toEqual([]);
+  });
+
+  it("a post published while the route was paused doesn't cross after resume", async () => {
+    // rawPost() went out a minute before NOW, while the route was paused.
+    const { deps, store, calls } = makeSyncDeps({ posts: [rawPost()] });
+    await store.putAccount(account());
+    await store.putChannels("acct", channels);
+    await store.putDestination(discordDest("d1"));
+    const created = NOW - 10 * 60_000;
+    await createRoute(
+      store,
+      "acct",
+      { channelIds: ["ch"], destinationId: "d1", tagNames: [] },
+      created,
+    );
+    const [route] = await store.listRoutes("acct");
+    const id = route!.id;
+    await setRoutePaused(store, "acct", id, true, NOW - 5 * 60_000);
+    expect((await store.getRoute(id))?.activeSince).toBe(created);
+    expect((await runSync("acct", deps)).status).toBe("no_routes");
+    expect(await store.countScheduled()).toBe(0);
+
+    const resumed = NOW - 30_000;
+    await setRoutePaused(store, "acct", id, false, resumed);
+    expect(await store.getRoute(id)).toMatchObject({
+      paused: false,
+      activeSince: resumed,
+    });
+    expect(await store.dueAccounts(resumed, 10)).toEqual(["acct"]);
+    expect((await store.getSyncState("acct")).nextRunAt).toBe(resumed);
+
+    const report = await runSync("acct", deps);
+    expect(report.status).toBe("ok");
+    expect(report.delivered).toBe(0);
+    expect(calls).toHaveLength(0);
+
+    // Resuming a route that is already running leaves its start alone.
+    await setRoutePaused(store, "acct", id, false, NOW);
+    expect((await store.getRoute(id))?.activeSince).toBe(resumed);
   });
 });
 

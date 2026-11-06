@@ -53,6 +53,17 @@ export function validateRouteInput(args: {
   return { ok: true, tagNames };
 }
 
+/** Makes the account due for a check now, keeping nextRunAt in step. */
+async function syncNow(
+  store: Store,
+  accountId: string,
+  now: number,
+): Promise<void> {
+  await store.scheduleSync(accountId, now);
+  const state = await store.getSyncState(accountId);
+  await store.putSyncState(accountId, { ...state, nextRunAt: now });
+}
+
 async function ownRoute(
   store: Store,
   accountId: string,
@@ -93,9 +104,7 @@ export async function createRoute(
     paused: false,
     createdAt: now,
   });
-  await store.scheduleSync(accountId, now);
-  const state = await store.getSyncState(accountId);
-  await store.putSyncState(accountId, { ...state, nextRunAt: now });
+  await syncNow(store, accountId, now);
   return { ok: true, message: "Route added." };
 }
 
@@ -115,10 +124,17 @@ export async function setRoutePaused(
   accountId: string,
   routeId: string,
   paused: boolean,
+  now: number,
 ): Promise<ActionResult> {
   const route = await ownRoute(store, accountId, routeId);
   if (!route) return fail("That route no longer exists.");
-  await store.putRoute({ ...route, paused });
+  if (route.paused && !paused) {
+    // A resumed route starts afresh: posts from while it was paused stay put.
+    await store.putRoute({ ...route, paused, activeSince: now });
+    await syncNow(store, accountId, now);
+  } else {
+    await store.putRoute({ ...route, paused });
+  }
   return { ok: true };
 }
 

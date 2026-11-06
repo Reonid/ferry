@@ -74,6 +74,7 @@ export async function toggleRouteAction(
       account.accountId,
       text(formData, "routeId"),
       text(formData, "paused") === "true",
+      Date.now(),
     ),
   );
 }
