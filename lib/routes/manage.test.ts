@@ -392,32 +392,54 @@ describe("sendLatestPost", () => {
 });
 
 describe("refreshChannels", () => {
-  it("replaces the queried organizations and keeps the rest", async () => {
+  it("re-reads the organizations, replaces their channels and keeps the rest", async () => {
     const { deps, store, buffer } = makeSyncDeps();
-    await store.putAccount(account({ organizationIds: ["org", "org2"] }));
+    // Signed in before joining org2.
+    await store.putAccount(account({ organizationIds: ["org"] }));
     await store.putChannels("acct", [
       channel({ id: "old", organizationId: "org" }),
       channel({ id: "keep", organizationId: "gone" }),
     ]);
-    buffer.mockImplementation(async ({ variables }) => ({
-      data: {
-        channels: [
-          {
-            id: `new-${String(variables.org)}`,
-            organizationId: variables.org,
-            service: "bluesky",
-            name: "me",
-          },
-        ],
-      },
+    buffer.mockImplementation(async ({ query, variables }) => ({
+      data:
+        query === ACCOUNT_QUERY
+          ? {
+              account: {
+                id: "acct",
+                organizations: [{ id: "org" }, { id: "org2" }],
+              },
+            }
+          : {
+              channels: [
+                {
+                  id: `new-${String(variables.org)}`,
+                  organizationId: variables.org,
+                  service: "bluesky",
+                  name: "me",
+                },
+              ],
+            },
       rateLimit: null,
     }));
     const r = await refreshChannels(deps, "acct");
     expect(r.ok).toBe(true);
-    expect(buffer).toHaveBeenCalledTimes(2);
+    expect(
+      buffer.mock.calls.map(([call]) => [
+        call.query === ACCOUNT_QUERY ? "account" : "channels",
+        call.variables,
+      ]),
+    ).toEqual([
+      ["account", {}],
+      ["channels", { org: "org" }],
+      ["channels", { org: "org2" }],
+    ]);
+    expect((await store.getAccount("acct"))?.organizationIds).toEqual([
+      "org",
+      "org2",
+    ]);
     const ids = (await store.getChannels("acct")).map((c) => c.id).sort();
     expect(ids).toEqual(["keep", "new-org", "new-org2"]);
-    expect(await store.getApiCalls("acct", "1970-01-01")).toBe(2);
+    expect(await store.getApiCalls("acct", "1970-01-01")).toBe(3);
   });
 });
 

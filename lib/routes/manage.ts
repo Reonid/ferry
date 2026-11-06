@@ -1,6 +1,10 @@
 import { BufferError } from "../buffer/client";
-import { mapChannel, mapPost } from "../buffer/map";
-import { CHANNELS_QUERY, LATEST_SENT_QUERY } from "../buffer/queries";
+import { mapAccount, mapChannel, mapPost } from "../buffer/map";
+import {
+  ACCOUNT_QUERY,
+  CHANNELS_QUERY,
+  LATEST_SENT_QUERY,
+} from "../buffer/queries";
 import { TokenBusyError } from "../buffer/tokens";
 import { SEND_LATEST_COOLDOWN_MS } from "../constants";
 import { newId } from "../crypto";
@@ -369,9 +373,23 @@ export async function refreshChannels(
   );
   if (blocked) return blocked;
   const fresh: Channel[] = [];
+  let current = account;
   try {
     const accessToken = await deps.getAccessToken(accountId);
-    for (const org of account.organizationIds) {
+    // Organizations first: one joined since signing in brings channels too.
+    await store.countApiCall(accountId, dayKey(now));
+    const reply = await deps.buffer({
+      accessToken,
+      query: ACCOUNT_QUERY,
+      variables: {},
+    });
+    if (reply.rateLimit) await store.putRateLimit(reply.rateLimit);
+    current = {
+      ...account,
+      organizationIds: mapAccount(reply.data).organizationIds,
+    };
+    await store.putAccount(current);
+    for (const org of current.organizationIds) {
       await store.countApiCall(accountId, dayKey(now));
       const { data, rateLimit } = await deps.buffer({
         accessToken,
@@ -387,11 +405,11 @@ export async function refreshChannels(
         }
     }
   } catch (err) {
-    const known = await buffersFailure(store, account, err);
+    const known = await buffersFailure(store, current, err);
     if (known) return known;
     throw err;
   }
-  const queried = new Set(account.organizationIds);
+  const queried = new Set(current.organizationIds);
   const kept = (await store.getChannels(accountId)).filter(
     (c) => !queried.has(c.organizationId),
   );
