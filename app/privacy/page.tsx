@@ -234,9 +234,10 @@ export default function PrivacyPage() {
               </li>
             </ul>
             <p>
-              Reddit gets nothing from Ferry: a draft reaches Reddit only when
-              you post it yourself. Ferry has no analytics and no ads, and it
-              never writes tokens or post text to its logs.
+              Ferry never posts to Reddit. Opening a draft&apos;s Reddit link
+              sends its title and text to Reddit&apos;s submit page, and nothing
+              is posted until you press Post there. Ferry has no analytics and
+              no ads, and it never writes tokens or post text to its logs.
             </p>
           </section>
 

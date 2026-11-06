@@ -163,6 +163,9 @@ test("privacy lists stored data", async ({ page }) => {
   });
   for (const processor of ["Vercel", "Upstash", "Redis", "QStash", "Discord"])
     await expect(others).toContainText(processor);
+  await expect(others).toContainText(
+    "Ferry never posts to Reddit. Opening a draft's Reddit link sends its title and text to Reddit's submit page, and nothing is posted until you press Post there.",
+  );
   await expect(others).toContainText("no analytics and no ads");
 
   const leaving = page.getByRole("region", {
