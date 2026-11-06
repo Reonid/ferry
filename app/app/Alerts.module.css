@@ -1,0 +1,42 @@
+.banners {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.banner {
+  padding: var(--space-3) var(--space-4);
+  border-inline-start: 4px solid var(--route);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-weight: 600;
+}
+
+.problem {
+  border-inline-start-color: var(--alert);
+  background: var(--alert-wash);
+}
+
+.alerts {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-inline-start: 4px solid var(--alert);
+  border-radius: var(--radius);
+  background: var(--alert-wash);
+}
+
+.list {
+  display: grid;
+  gap: var(--space-3);
+  list-style: none;
+}
+
+.alert {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.when {
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
