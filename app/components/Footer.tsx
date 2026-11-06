@@ -1,8 +1,6 @@
 import Link from "next/link";
+import { DISCLAIMER } from "./disclaimer";
 import styles from "./Footer.module.css";
-
-export const DISCLAIMER =
-  "Ferry is an independent project built on the Buffer API. It is not affiliated with or endorsed by Buffer.";
 
 export default function Footer() {
   return (

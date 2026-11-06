@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Atkinson_Hyperlegible_Next, Piazzolla } from "next/font/google";
+import { optionalEnv } from "@/lib/env";
 import Footer from "./components/Footer";
 import "./globals.css";
 
@@ -22,10 +23,23 @@ const water = Piazzolla({
   display: "swap",
 });
 
+const DESCRIPTION =
+  "Ferry carries your Buffer posts to the places Buffer doesn't go.";
+// Gives the share image an absolute URL. Unset, Next falls back to the
+// deployment's own URL.
+const base = optionalEnv("NEXT_PUBLIC_BASE_URL");
+
 export const metadata: Metadata = {
+  ...(base ? { metadataBase: new URL(base) } : {}),
   title: { default: "Ferry", template: "%s – Ferry" },
-  description:
-    "Ferry carries your Buffer posts to the places Buffer doesn't go.",
+  description: DESCRIPTION,
+  openGraph: {
+    type: "website",
+    siteName: "Ferry",
+    title: "Ferry",
+    description: DESCRIPTION,
+  },
+  twitter: { card: "summary_large_image" },
 };
 
 export const viewport: Viewport = {

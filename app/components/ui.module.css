@@ -1,5 +1,23 @@
 /* Shared controls: sections, buttons, fields and the line under a form. */
 
+/* A page's main column, under the header. */
+.page {
+  inline-size: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: var(--space-7) var(--gutter) var(--space-8);
+}
+
+/* A page's title: set like a name on the water, in the chart's italic. */
+.title {
+  font-family: var(--font-water);
+  font-style: italic;
+  font-weight: 500;
+  font-size: clamp(2rem, 1.55rem + 1.9vw, 2.75rem);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
 .section {
   display: grid;
   align-content: start;

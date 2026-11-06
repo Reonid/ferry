@@ -1,3 +1,4 @@
+import { redditSubmitUrl } from "@/lib/destinations/reddit/draft";
 import type { Store } from "@/lib/store";
 import type {
   ActivityEntry,
@@ -163,17 +164,31 @@ export async function seedDevAccount(
   await store.upsertActivity(id, delivered);
   await store.upsertActivity(id, failed);
 
+  const title = "We just opened the beta of our scheduling side project";
+  const body = "We just opened the beta. Come break things with us.";
   const draft: RedditDraft = {
     token: "dev-draft",
     accountId: id,
     subreddit: "SideProject",
-    title: "We just opened the beta of our scheduling side project",
-    body: "We just opened the beta. Come break things with us.",
+    title,
+    body,
     kind: "self",
     url: null,
-    images: [],
-    submitUrl:
-      "https://www.reddit.com/r/SideProject/submit?title=We%20just%20opened%20the%20beta&text=Come%20break%20things%20with%20us.",
+    // Ferry's own share image, so the draft page shows an image offline.
+    images: [
+      {
+        url: "/opengraph-image",
+        alt: "Ferry's share card: a boat crossing a dashed route between two shores.",
+        mimeType: "image/png",
+      },
+    ],
+    submitUrl: redditSubmitUrl({
+      subreddit: "SideProject",
+      kind: "self",
+      title,
+      body,
+      url: null,
+    }),
     createdAt: now - 5 * HOUR + MINUTE,
   };
   await store.putDraft(draft);

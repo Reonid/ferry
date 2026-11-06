@@ -164,11 +164,14 @@ export default function CrossingMap({
   destinations,
   routes,
   activity,
+  label: givenLabel,
 }: {
   channels: Channel[];
   destinations: PublicDestination[];
   routes: Route[];
   activity: ActivityEntry[];
+  /** Replaces the label read from the routes, as the landing's example does. */
+  label?: string;
 }) {
   const wide = useMemo(
     () => layoutChart({ channels, destinations, routes }, WIDE),
@@ -178,7 +181,7 @@ export default function CrossingMap({
     () => layoutChart({ channels, destinations, routes }, NARROW),
     [channels, destinations, routes],
   );
-  const label = mapLabel(routes, channels, destinations);
+  const label = givenLabel ?? mapLabel(routes, channels, destinations);
   const wideRef = useRef<SVGSVGElement>(null);
   const narrowRef = useRef<SVGSVGElement>(null);
   const seen = useRef<ActivityEntry[] | null>(null);
