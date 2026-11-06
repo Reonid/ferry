@@ -75,10 +75,14 @@ export async function runSync(
   if (lock === null) return { ...report, status: "locked" };
   const start = deps.now();
 
-  async function schedule(at: number): Promise<void> {
+  async function schedule(at: number, retryAt?: number): Promise<void> {
     await store.scheduleSync(accountId, at);
     const state = await store.getSyncState(accountId);
-    await store.putSyncState(accountId, { ...state, nextRunAt: at });
+    await store.putSyncState(accountId, {
+      ...state,
+      nextRunAt: at,
+      ...(retryAt !== undefined ? { retryAt } : {}),
+    });
     report.nextRunAt = at;
   }
   async function alert(
@@ -192,6 +196,7 @@ export async function runSync(
         lastSyncAt: start,
         overdueAttempts: overdue ? state.overdueAttempts + 1 : 0,
         nextRunAt: plan.at,
+        retryAt: null,
       });
       report.nextRunAt = plan.at;
       return report;
@@ -208,14 +213,14 @@ export async function runSync(
         return { ...report, status: "needs_reauth" };
       }
       if (err instanceof BufferError && err.kind === "rate_limit") {
-        await schedule(
+        const at =
           start +
-            (err.retryAfterMs ?? OVERDUE_BASE_MS) +
-            (deps.jitterMs?.() ?? 0),
-        );
+          (err.retryAfterMs ?? OVERDUE_BASE_MS) +
+          (deps.jitterMs?.() ?? 0);
+        await schedule(at, at);
         return { ...report, status: "rate_limited" };
       }
-      await schedule(start + 2 * OVERDUE_BASE_MS);
+      await schedule(start + 2 * OVERDUE_BASE_MS, start + 2 * OVERDUE_BASE_MS);
       if (err instanceof BufferError || err instanceof TokenBusyError)
         return { ...report, status: "error" };
       throw err;

@@ -213,6 +213,7 @@ export function createStore(redis: RedisLike, key: Buffer): Store {
           nextRunAt: null,
           liveUntil: null,
           lastSendLatestAt: null,
+          retryAt: null,
         }
       );
     },

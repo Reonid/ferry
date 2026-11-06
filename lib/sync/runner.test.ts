@@ -111,6 +111,26 @@ describe("runSync", () => {
     expect((await store.getSyncState("acct")).checkpoint).toBeNull();
   });
 
+  it("records retryAt on 429 and clears it after success", async () => {
+    const failing = makeSyncDeps(
+      {},
+      new BufferError("slow", { kind: "rate_limit", retryAfterMs: 90_000 }),
+    );
+    await seed(failing.store);
+    await runSync("acct", failing.deps);
+    expect((await failing.store.getSyncState("acct")).retryAt).toBe(
+      NOW + 90_000,
+    );
+    const ok = makeSyncDeps();
+    await seed(ok.store);
+    await ok.store.putSyncState("acct", {
+      ...(await ok.store.getSyncState("acct")),
+      retryAt: NOW + 5,
+    });
+    await runSync("acct", ok.deps);
+    expect((await ok.store.getSyncState("acct")).retryAt).toBeNull();
+  });
+
   it("retries other Buffer failures after two minutes", async () => {
     const { deps, store } = makeSyncDeps(
       {},

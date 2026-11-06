@@ -1,12 +1,12 @@
 import { loadDashboard } from "@/lib/dashboard/snapshot";
-import { LIVE_INTERVAL_MS, LIVE_WINDOW_MS } from "@/lib/constants";
+import { LIVE_WINDOW_MS } from "@/lib/constants";
 import { getSession } from "@/lib/session";
 import { getStore } from "@/lib/store";
-import { liveAllowed } from "@/lib/sync/budget";
+import { shouldSyncLive } from "@/lib/sync/live";
 import { productionDeps } from "@/lib/sync/production";
 import { runSync } from "@/lib/sync/runner";
 
-const DEV_ACCOUNT_ID = "dev-account";
+export const maxDuration = 60;
 
 export async function GET(): Promise<Response> {
   const session = await getSession();
@@ -23,11 +23,14 @@ export async function GET(): Promise<Response> {
     liveUntil: now + LIVE_WINDOW_MS,
   });
 
-  const due = state.nextRunAt === null || state.nextRunAt <= now;
-  const liveDue =
-    liveAllowed(await store.getRateLimit(), now) &&
-    (state.lastSyncAt === null || now - state.lastSyncAt >= LIVE_INTERVAL_MS);
-  if (accountId !== DEV_ACCOUNT_ID && (due || liveDue)) {
+  if (
+    shouldSyncLive({
+      accountId,
+      state,
+      snapshot: await store.getRateLimit(),
+      now,
+    })
+  ) {
     try {
       await runSync(accountId, productionDeps());
     } catch (err) {

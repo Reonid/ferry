@@ -194,6 +194,7 @@ export interface SyncState {
   nextRunAt: number | null;
   liveUntil: number | null;
   lastSendLatestAt: number | null;
+  retryAt: number | null;
 }
 export interface RetryJob {
   id: string;

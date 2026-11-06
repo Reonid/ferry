@@ -149,6 +149,7 @@ describe("sync schedule", () => {
       nextRunAt: null,
       liveUntil: null,
       lastSendLatestAt: null,
+      retryAt: null,
     });
   });
 });
