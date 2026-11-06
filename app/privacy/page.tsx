@@ -253,8 +253,7 @@ export default function PrivacyPage() {
               Delete my data is under Settings on your dashboard. It deletes
               everything above and signs you out. A few records run out on their
               own instead, on the schedule above: delivery claims, sent-alert
-              markers, API-call counters, sync locks, and any post still waiting
-              to retry to a destination you removed earlier. Nothing changes in
+              markers, API-call counters and sync locks. Nothing changes in
               Buffer.
             </p>
             <p>

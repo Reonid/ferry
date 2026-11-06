@@ -395,6 +395,7 @@ export function createStore(redis: RedisLike, key: Buffer): Store {
       const groupKeys = await redis.zrange(k.acts(id), 0, -1);
       const tokens = await redis.zrange(k.drafts(id), 0, -1);
 
+      // Jobs for destinations removed earlier are this account's too.
       const dueIds = await redis.zrange(k.retryDue, 0, -1);
       const jobs = await mgetJson<RetryJob>(dueIds.map(k.retry));
       const ownJobIds = dueIds.filter((_, i) => {
@@ -402,7 +403,7 @@ export function createStore(redis: RedisLike, key: Buffer): Store {
         return (
           job !== null &&
           job !== undefined &&
-          destIds.includes(job.destinationId)
+          (job.accountId === id || destIds.includes(job.destinationId))
         );
       });
       if (ownJobIds.length > 0) await redis.zrem(k.retryDue, ...ownJobIds);

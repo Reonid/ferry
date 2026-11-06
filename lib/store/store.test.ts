@@ -538,4 +538,24 @@ describe("deleteAccountData", () => {
     expect(await store.listAlerts("b", 10)).toHaveLength(1);
     expect(await store.getApiCalls("b", "2026-11-05")).toBe(1);
   });
+
+  it("deletes retry jobs for an already-removed destination", async () => {
+    await seed("a");
+    await seed("b");
+    await store.putRetry(job("a-gone", "a", "removed"), 10);
+    await store.putRetry(
+      { ...job("a-failed", "a", "removed"), failed: true },
+      10,
+    );
+    await store.putRetry(job("b-gone", "b", "removed"), 10);
+    await store.deleteAccountData("a");
+
+    expect(await store.getRetry("a-gone")).toBeNull();
+    expect(await store.getRetry("a-failed")).toBeNull();
+    expect(await redis.zrange("ferry:retry:due", 0, -1)).toEqual([
+      "b-gone",
+      "b-j",
+    ]);
+    expect(await store.getRetry("b-gone")).not.toBeNull();
+  });
 });
