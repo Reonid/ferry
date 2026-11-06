@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Post, Route } from "../types";
-import { routesForPost } from "./match";
+import { routeCoversPost, routesForPost } from "./match";
 
 const T = Date.UTC(2026, 10, 5, 12);
 
@@ -80,5 +80,21 @@ describe("routesForPost", () => {
     expect(
       routesForPost(post({ sentAt: null, dueAt: null }), [route()]),
     ).toEqual([]);
+  });
+});
+
+describe("routeCoversPost", () => {
+  it("applies channel, time and tags whatever the post's status", () => {
+    const failed = post({
+      status: "error",
+      sentAt: null,
+      tags: [{ id: "t1", name: "Launch" }],
+    });
+    expect(routeCoversPost(failed, route())).toBe(true);
+    expect(routeCoversPost(failed, route({ tagNames: ["launch"] }))).toBe(true);
+    expect(routeCoversPost(failed, route({ tagNames: ["other"] }))).toBe(false);
+    expect(routeCoversPost(failed, route({ activeSince: T + 1 }))).toBe(false);
+    expect(routeCoversPost(failed, route({ channelIds: ["c2"] }))).toBe(false);
+    expect(routeCoversPost(failed, route({ paused: true }))).toBe(false);
   });
 });

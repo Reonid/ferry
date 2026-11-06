@@ -322,6 +322,32 @@ describe("runSync", () => {
     expect(a?.supportUrl).toBe("https://help.test/x");
   });
 
+  it("doesn't alert for an error post published before the route existed", async () => {
+    const failed = (id: string, at: number, tags: string[] = []) =>
+      rawPost({
+        id,
+        status: "error",
+        dueAt: new Date(at).toISOString(),
+        sentAt: null,
+        tags: tags.map((name) => ({ id: name, name })),
+        error: { message: "Too long", supportUrl: null },
+      });
+    const { deps, store } = makeSyncDeps({
+      posts: [
+        failed("before", NOW - 60_000, ["launch"]),
+        failed("after", NOW - 1000, ["launch"]),
+        failed("untagged", NOW - 1000),
+      ],
+    });
+    await seed(store, { activeSince: NOW - 30_000 });
+    const [r] = await store.listRoutes("acct");
+    await store.putRoute({ ...r!, tagNames: ["launch"] });
+    await runSync("acct", deps);
+    expect((await store.listAlerts("acct", 10)).map((a) => a.key)).toEqual([
+      "post-error:after",
+    ]);
+  });
+
   it("returns locked while another sync holds the lock", async () => {
     const { deps, store, buffer } = makeSyncDeps();
     await seed(store);

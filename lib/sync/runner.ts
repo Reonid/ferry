@@ -17,7 +17,7 @@ import { deliverToDestination, type DeliverDeps } from "../delivery/deliver";
 import { serviceLabel } from "../mirror/services";
 import { toMirrorPost } from "../mirror/to-mirror";
 import { groupPosts } from "../routing/group";
-import { routesForPost } from "../routing/match";
+import { routeCoversPost, routesForPost } from "../routing/match";
 import { dayKey } from "../time";
 import type {
   Account,
@@ -182,6 +182,7 @@ export async function runSync(
         account,
         mapped.posts,
         mapped.channels,
+        routes,
         sourceIds,
         channels,
       );
@@ -286,11 +287,17 @@ export async function runSync(
       account: Account,
       posts: Post[],
       fresh: Channel[],
+      active: Route[],
       source: Set<string>,
       channels: Channel[],
     ): Promise<void> {
       for (const post of posts) {
-        if (post.status !== "error" || !source.has(post.channelId)) continue;
+        // Only posts a running route would have carried, had they gone out.
+        if (
+          post.status !== "error" ||
+          !active.some((r) => routeCoversPost(post, r))
+        )
+          continue;
         const label = channelLabel(channels, post.channelId, post.service);
         await alert(
           account,
