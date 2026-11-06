@@ -67,6 +67,11 @@ export function isMainlyLink(post: MirrorPost): boolean {
   return clean(post.text).length <= 100;
 }
 
+/** Reddit's submit page for a subreddit, with nothing filled in. */
+export function redditSubmitPage(subreddit: string): string {
+  return `https://www.reddit.com/r/${subreddit}/submit`;
+}
+
 export function redditSubmitUrl(args: {
   subreddit: string;
   kind: "self" | "link";
@@ -74,7 +79,7 @@ export function redditSubmitUrl(args: {
   body: string;
   url: string | null;
 }): string {
-  const base = `https://www.reddit.com/r/${args.subreddit}/submit`;
+  const base = redditSubmitPage(args.subreddit);
   const title = encodeURIComponent(args.title);
   if (args.kind === "link") {
     return `${base}?type=LINK&title=${title}&url=${encodeURIComponent(args.url ?? "")}`;
