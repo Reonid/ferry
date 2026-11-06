@@ -1,6 +1,8 @@
 const AUTHORIZE_URL = "https://discord.com/oauth2/authorize";
 const TOKEN_URL = "https://discord.com/api/oauth2/token";
 
+export const DISCORD_STATE_COOKIE = "ferry_discord_state";
+
 export class DiscordOAuthError extends Error {
   constructor(message: string) {
     super(message);
