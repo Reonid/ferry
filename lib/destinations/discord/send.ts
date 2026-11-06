@@ -1,9 +1,19 @@
+import {
+  DISCORD_ALT_MAX,
+  DISCORD_EMBEDS_MAX,
+  DISCORD_UPLOAD_BUDGET,
+} from "../../constants";
 import type { DeliveryOutcome } from "../../types";
 import { fetchImage } from "../../net/fetch-image";
 import type { DiscordMessage } from "./format";
 
 type Failure = Extract<DeliveryOutcome, { ok: false }>;
 
+/**
+ * Uploads each image while the message stays within the upload budget.
+ * An image that can't be fetched or doesn't fit becomes a URL embed,
+ * while there's room for one; the message's own embeds come first.
+ */
 async function buildBody(
   message: DiscordMessage,
   fetchImageImpl: typeof fetchImage,
@@ -11,9 +21,11 @@ async function buildBody(
   const { files = [], ...rest } = message;
   const embeds = [...(rest.embeds ?? [])];
   const fetched: { filename: string; alt: string; blob: Blob }[] = [];
+  let uploadBytes = 0;
   for (const f of files) {
     const img = await fetchImageImpl(f.url);
-    if (img) {
+    if (img && uploadBytes + img.bytes.byteLength <= DISCORD_UPLOAD_BUDGET) {
+      uploadBytes += img.bytes.byteLength;
       fetched.push({
         filename: f.filename,
         alt: f.alt,
@@ -21,7 +33,7 @@ async function buildBody(
           type: img.mimeType || f.mimeType,
         }),
       });
-    } else {
+    } else if (embeds.length < DISCORD_EMBEDS_MAX) {
       embeds.push({ image: { url: f.url } });
     }
   }
@@ -36,7 +48,8 @@ async function buildBody(
   payload.attachments = fetched.map((f, id) => ({
     id,
     filename: f.filename,
-    description: f.alt,
+    // Cut by code point, so an emoji is never split in half.
+    description: Array.from(f.alt).slice(0, DISCORD_ALT_MAX).join(""),
   }));
   const form = new FormData();
   form.set("payload_json", JSON.stringify(payload));

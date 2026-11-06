@@ -13,6 +13,31 @@ const msg = (
   ...over,
 });
 const created = (id: string) => Response.json({ id, channel_id: "ch1" });
+const MIB = 1024 * 1024;
+const file = (n: number, alt = `image ${n}`) => ({
+  url: `https://i.example/${n}.png`,
+  filename: `image-${n}.png`,
+  alt,
+  mimeType: "image/png",
+});
+/** Records the one request body sent. */
+function capture() {
+  const sent: { body: string | FormData | null } = { body: null };
+  const fetchImpl = (async (_u: string, init: RequestInit) => {
+    sent.body = init.body as string | FormData;
+    return created("m1");
+  }) as unknown as typeof fetch;
+  const payload = () =>
+    JSON.parse(
+      typeof sent.body === "string"
+        ? sent.body
+        : String(sent.body?.get("payload_json")),
+    ) as {
+      embeds?: { image: { url: string } }[];
+      attachments?: { id: number; filename: string; description: string }[];
+    };
+  return { sent, fetchImpl, payload };
+}
 
 describe("sendDiscordMessages", () => {
   it("returns the message link and posts to the webhook url", async () => {
@@ -116,6 +141,80 @@ describe("sendDiscordMessages", () => {
     expect(JSON.parse(body as string).embeds).toEqual([
       { image: { url: "https://i.example/1.png" } },
     ]);
+  });
+
+  it("truncates alt text to 1024 characters", async () => {
+    const { fetchImpl, payload } = capture();
+    const fetchImageImpl = (async () => ({
+      bytes: new Uint8Array([1]),
+      mimeType: "image/png",
+    })) as never;
+    // Each cat is two UTF-16 code units: the cut must not split one.
+    await sendDiscordMessages({
+      ...base,
+      messages: [
+        msg("pics", { files: [file(1, "🐱".repeat(1030)), file(2, "short")] }),
+      ],
+      fetchImpl,
+      fetchImageImpl,
+    });
+    const [long, short] = payload().attachments!;
+    expect(long!.description).toBe("🐱".repeat(1024));
+    expect(short!.description).toBe("short");
+  });
+
+  it("turns images past the upload budget into embeds", async () => {
+    const { sent, fetchImpl, payload } = capture();
+    const sizes: Record<string, number> = {
+      "https://i.example/1.png": 4 * MIB,
+      "https://i.example/2.png": 4 * MIB,
+      "https://i.example/3.png": 4 * MIB,
+      "https://i.example/4.png": 1 * MIB,
+    };
+    const fetchImageImpl = (async (url: string) => ({
+      bytes: new Uint8Array(sizes[url]!),
+      mimeType: "image/png",
+    })) as never;
+    await sendDiscordMessages({
+      ...base,
+      messages: [msg("pics", { files: [1, 2, 3, 4].map((n) => file(n)) })],
+      fetchImpl,
+      fetchImageImpl,
+    });
+    // 4 + 4 MiB fit in 9.5; a third 4 MiB would not, but the 1 MiB one does.
+    expect(payload().attachments).toEqual([
+      { id: 0, filename: "image-1.png", description: "image 1" },
+      { id: 1, filename: "image-2.png", description: "image 2" },
+      { id: 2, filename: "image-4.png", description: "image 4" },
+    ]);
+    expect(payload().embeds).toEqual([
+      { image: { url: "https://i.example/3.png" } },
+    ]);
+    const form = sent.body as FormData;
+    expect(form.get("files[2]")).toBeInstanceOf(Blob);
+    expect(form.get("files[3]")).toBeNull();
+  });
+
+  it("never sends more than 10 embeds", async () => {
+    const { fetchImpl, payload } = capture();
+    const thumbnail = { image: { url: "https://v.example/t.jpg" } };
+    await sendDiscordMessages({
+      ...base,
+      messages: [
+        msg("pics", {
+          embeds: [thumbnail],
+          files: Array.from({ length: 10 }, (_, i) => file(i + 1)),
+        }),
+      ],
+      fetchImpl,
+      fetchImageImpl: (async () => null) as never,
+    });
+    const embeds = payload().embeds!;
+    expect(embeds).toHaveLength(10);
+    expect(embeds[0]).toEqual(thumbnail);
+    expect(embeds.slice(1).map((e) => e.image.url)).toEqual(
+      Array.from({ length: 9 }, (_, i) => `https://i.example/${i + 1}.png`),
+    );
   });
 
   it("maps 429 to retryAfterMs with sentCount", async () => {
