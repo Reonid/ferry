@@ -26,6 +26,7 @@ const fail = (error: string): ActionResult => ({ ok: false, error });
 const MAX_TAGS = 10;
 const MAX_LABEL = 60;
 const RECONNECT = "Reconnect this destination first.";
+const REFRESH_CHANNELS = "Refresh your channels and try again.";
 
 export function validateRouteInput(args: {
   channelIds: string[];
@@ -274,10 +275,12 @@ export async function sendLatestPost(
     (account.organizationIds.length === 1
       ? account.organizationIds[0]
       : undefined);
-  if (org === undefined) return fail("Refresh your channels and try again.");
+  if (org === undefined) return fail(REFRESH_CHANNELS);
   const channelIds = route.channelIds.filter(
     (id) => channels.find((c) => c.id === id)?.organizationId === org,
   );
+  // An empty channel filter would ask Buffer for every channel's posts.
+  if (channelIds.length === 0) return fail(REFRESH_CHANNELS);
 
   let node: unknown;
   try {

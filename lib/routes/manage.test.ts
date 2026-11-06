@@ -336,6 +336,17 @@ describe("sendLatestPost", () => {
     });
   });
 
+  it("asks for a channel refresh, without calling Buffer, when it knows none of the route's channels", async () => {
+    const { deps, store, routeId, buffer } = await seedSend();
+    await store.putChannels("acct", []);
+    const r = await sendLatestPost(deps, "acct", routeId);
+    expect(r).toEqual({
+      ok: false,
+      error: "Refresh your channels and try again.",
+    });
+    expect(buffer).not.toHaveBeenCalled();
+  });
+
   it("asks to reconnect a broken destination without calling Buffer", async () => {
     const { deps, store, routeId, buffer } = await seedSend();
     await store.putDestination({ ...discordDest("d1"), status: "broken" });
