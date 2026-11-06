@@ -1,6 +1,7 @@
 import {
   DISCORD_ALT_MAX,
   DISCORD_EMBEDS_MAX,
+  DISCORD_POST_TIMEOUT_MS,
   DISCORD_UPLOAD_BUDGET,
 } from "../../constants";
 import type { DeliveryOutcome } from "../../types";
@@ -13,6 +14,7 @@ type Failure = Extract<DeliveryOutcome, { ok: false }>;
  * Uploads each image while the message stays within the upload budget.
  * An image that can't be fetched or doesn't fit becomes a URL embed,
  * while there's room for one; the message's own embeds come first.
+ * Images download in parallel, each under fetchImage's own timeout.
  */
 async function buildBody(
   message: DiscordMessage,
@@ -21,9 +23,10 @@ async function buildBody(
   const { files = [], ...rest } = message;
   const embeds = [...(rest.embeds ?? [])];
   const fetched: { filename: string; alt: string; blob: Blob }[] = [];
+  const images = await Promise.all(files.map((f) => fetchImageImpl(f.url)));
   let uploadBytes = 0;
-  for (const f of files) {
-    const img = await fetchImageImpl(f.url);
+  for (const [i, f] of files.entries()) {
+    const img = images[i];
     if (img && uploadBytes + img.bytes.byteLength <= DISCORD_UPLOAD_BUDGET) {
       uploadBytes += img.bytes.byteLength;
       fetched.push({
@@ -124,7 +127,14 @@ export async function sendDiscordMessages(args: {
     let res: Response;
     try {
       const { body, headers } = await buildBody(args.messages[i]!, imageImpl);
-      res = await doFetch(endpoint, { method: "POST", headers, body });
+      // A timeout counts as unreachable and is retried. Discord may still
+      // have posted it, the one case where a message can arrive twice.
+      res = await doFetch(endpoint, {
+        method: "POST",
+        headers,
+        body,
+        signal: AbortSignal.timeout(DISCORD_POST_TIMEOUT_MS),
+      });
     } catch {
       return {
         ok: false,

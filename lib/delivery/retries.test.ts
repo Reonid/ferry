@@ -132,6 +132,40 @@ describe("throwing dispatches", () => {
     });
   });
 
+  it("fails a job that already used all attempts without sending", async () => {
+    // Left due at the cap when a run was cut off after writing ahead.
+    const ctx = await setup();
+    await ctx.store.putRetry(
+      {
+        id: "d1|g1",
+        accountId: "acct",
+        destinationId: "d1",
+        groupKey: "g1",
+        mirror: mirror(),
+        attempts: MAX_ATTEMPTS,
+        sentCount: 0,
+        failed: false,
+      },
+      NOW - 1,
+    );
+    expect(await processRetries({ now: NOW, deps: ctx.deps })).toBe(0);
+    expect(ctx.calls).toHaveLength(0);
+    expect(await ctx.store.getRetry("d1|g1")).toMatchObject({
+      failed: true,
+      attempts: MAX_ATTEMPTS,
+    });
+    expect(
+      (await ctx.store.getActivity("acct", "g1"))?.deliveries[0],
+    ).toMatchObject({
+      status: "failed",
+      reason: "Unexpected error while delivering.",
+      jobId: "d1|g1",
+    });
+    expect(
+      await ctx.store.dueRetries(NOW + WRITE_AHEAD_MS * 100, 10),
+    ).toHaveLength(0);
+  });
+
   it("keeps processing other jobs when one throws", async () => {
     const ctx = await setup();
     const mk = (id: string) => ({

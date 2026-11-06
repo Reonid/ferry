@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { DiscordMessage } from "./format";
 import { sendDiscordMessages } from "./send";
 
@@ -215,6 +215,52 @@ describe("sendDiscordMessages", () => {
     expect(embeds.slice(1).map((e) => e.image.url)).toEqual(
       Array.from({ length: 9 }, (_, i) => `https://i.example/${i + 1}.png`),
     );
+  });
+
+  it("gives each webhook request a 20 second timeout", async () => {
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    const signals: (AbortSignal | null | undefined)[] = [];
+    const fetchImpl = (async (_u: string, init: RequestInit) => {
+      signals.push(init.signal);
+      return created("m1");
+    }) as unknown as typeof fetch;
+    await sendDiscordMessages({
+      ...base,
+      messages: [msg("a"), msg("b")],
+      fetchImpl,
+    });
+    expect(timeout.mock.calls).toEqual([[20_000], [20_000]]);
+    expect(signals).toEqual([expect.any(AbortSignal), expect.any(AbortSignal)]);
+    timeout.mockRestore();
+  });
+
+  it("fetches a message's images in parallel, keeping their order", async () => {
+    const { fetchImpl, payload } = capture();
+    const delays: Record<string, number> = {
+      "https://i.example/1.png": 15,
+      "https://i.example/2.png": 1,
+      "https://i.example/3.png": 8,
+    };
+    let active = 0;
+    let peak = 0;
+    const fetchImageImpl = (async (url: string) => {
+      peak = Math.max(peak, ++active);
+      await new Promise((resolve) => setTimeout(resolve, delays[url]));
+      active--;
+      return { bytes: new Uint8Array([1]), mimeType: "image/png" };
+    }) as never;
+    await sendDiscordMessages({
+      ...base,
+      messages: [msg("pics", { files: [1, 2, 3].map((n) => file(n)) })],
+      fetchImpl,
+      fetchImageImpl,
+    });
+    expect(peak).toBe(3);
+    expect(payload().attachments?.map((a) => a.filename)).toEqual([
+      "image-1.png",
+      "image-2.png",
+      "image-3.png",
+    ]);
   });
 
   it("maps 429 to retryAfterMs with sentCount", async () => {

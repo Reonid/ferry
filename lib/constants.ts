@@ -44,6 +44,7 @@ export const DISCORD_EMBEDS_MAX = 10;
 export const DISCORD_ALT_MAX = 1024;
 /** Total upload size per message, kept under Discord's 10 MiB limit. */
 export const DISCORD_UPLOAD_BUDGET = 9.5 * 1024 * 1024;
+export const DISCORD_POST_TIMEOUT_MS = 20 * SECOND;
 export const REDDIT_TITLE_MAX = 120;
 export const SEND_LATEST_COOLDOWN_MS = 30 * SECOND;
 export const TOKEN_REFRESH_MARGIN_MS = 2 * MINUTE;

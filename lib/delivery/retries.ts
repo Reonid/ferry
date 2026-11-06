@@ -19,6 +19,12 @@ export async function processRetries(args: {
   let hasError = false;
   for (const job of jobs) {
     try {
+      // Still due at the cap means a run was cut off after writing ahead,
+      // by a crash or a timeout. Fail it rather than run it again.
+      if (job.attempts >= MAX_ATTEMPTS) {
+        await failJob(deps, job, "Unexpected error while delivering.");
+        continue;
+      }
       // Write ahead first and count this run as an attempt, so a job whose
       // dispatch keeps throwing still reaches the attempt cap.
       await deps.store.putRetry(
