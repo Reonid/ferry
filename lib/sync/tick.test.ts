@@ -55,6 +55,52 @@ describe("runTick", () => {
     void WRITE_AHEAD_MS;
   });
 
+  it("a second overlapping tick does nothing", async () => {
+    const { deps, store, buffer } = makeSyncDeps();
+    await seed(store);
+    await store.scheduleSync("acct", NOW - 1);
+    await store.putRetry(
+      {
+        id: "d1|g1",
+        accountId: "acct",
+        destinationId: "d1",
+        groupKey: "g1",
+        mirror: mirror(),
+        attempts: 0,
+        sentCount: 0,
+        failed: false,
+      },
+      NOW - 1,
+    );
+    // The first tick stops inside its Buffer call until released.
+    const healthy = buffer.getMockImplementation()!;
+    let entered = () => {};
+    const inBuffer = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    buffer.mockImplementation(async (args) => {
+      entered();
+      await gate;
+      return healthy(args);
+    });
+
+    const first = runTick({ now: () => NOW, deps });
+    await inBuffer;
+    expect(await runTick({ now: () => NOW, deps })).toEqual({
+      synced: 0,
+      retried: 0,
+    });
+    expect(buffer).toHaveBeenCalledTimes(1);
+
+    release();
+    expect(await first).toEqual({ synced: 1, retried: 1 });
+    expect(await store.acquireLock("tick", 1000)).not.toBeNull();
+  });
+
   it("keeps going and logs only the error name when a sync throws", async () => {
     const { deps, store } = makeSyncDeps();
     await seed(store);

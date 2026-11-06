@@ -22,6 +22,8 @@ export const LIVE_WINDOW_MS = 60 * SECOND;
 export const LIVE_POLL_MS = 20 * SECOND;
 export const TICK_BUDGET_MS = 45 * SECOND;
 export const TICK_MAX_ACCOUNTS = 25;
+/** Outlives the tick's budget, and ends before its 60-second limit. */
+export const TICK_LOCK_MS = 55 * SECOND;
 export const CLAIM_POST_TTL_S = 45 * 24 * 60 * 60;
 export const CLAIM_GROUP_TTL_S = 24 * 60 * 60;
 export const RETRY_DELAYS_MS = [1 * MINUTE, 5 * MINUTE, 30 * MINUTE, 3 * HOUR];
