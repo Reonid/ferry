@@ -165,51 +165,53 @@ export default function Dashboard({
           needsReauth={live.account.status === "needs_reauth"}
           notice={notice}
         />
-        <div className={styles.hero}>
-          <StatusLine
-            routes={live.routes}
-            nextRunAt={live.nextRunAt}
-            apiCallsToday={live.apiCallsToday}
-            now={now}
-          />
-          <CrossingMap
-            channels={live.channels}
-            destinations={live.destinations}
-            routes={live.routes}
-            activity={live.activity}
-          />
-        </div>
-        <Alerts alerts={live.alerts} now={now} />
-        <div className={styles.columns}>
-          <div className={styles.column}>
-            <RouteList
+        <div className={styles.stack}>
+          <div className={styles.hero}>
+            <StatusLine
               routes={live.routes}
+              nextRunAt={live.nextRunAt}
+              apiCallsToday={live.apiCallsToday}
+              now={now}
+            />
+            <CrossingMap
               channels={live.channels}
               destinations={live.destinations}
-            />
-            <Destinations
-              destinations={live.destinations}
               routes={live.routes}
-            />
-          </div>
-          <div className={styles.column}>
-            <Activity
               activity={live.activity}
-              destinations={live.destinations}
-              now={now}
-            />
-            <DraftsTray
-              drafts={live.drafts}
-              destinations={live.destinations}
-              now={now}
             />
           </div>
+          <Alerts alerts={live.alerts} now={now} />
+          <div className={styles.columns}>
+            <div className={styles.column}>
+              <RouteList
+                routes={live.routes}
+                channels={live.channels}
+                destinations={live.destinations}
+              />
+              <Destinations
+                destinations={live.destinations}
+                routes={live.routes}
+              />
+            </div>
+            <div className={styles.column}>
+              <Activity
+                activity={live.activity}
+                destinations={live.destinations}
+                now={now}
+              />
+              <DraftsTray
+                drafts={live.drafts}
+                destinations={live.destinations}
+                now={now}
+              />
+            </div>
+          </div>
+          <Settings
+            accountName={live.account.name}
+            destinations={live.destinations}
+            notifyDestinationId={live.notifyDestinationId}
+          />
         </div>
-        <Settings
-          accountName={live.account.name}
-          destinations={live.destinations}
-          notifyDestinationId={live.notifyDestinationId}
-        />
       </main>
     </>
   );

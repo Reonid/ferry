@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useRef } from "react";
 import { plural, relativeTime } from "@/lib/dashboard/view";
 import type { Alert } from "@/lib/types";
 import ui from "../components/ui.module.css";
@@ -16,7 +19,14 @@ const NOTICE_TEXT: Record<Notice, string> = {
 
 const SHOWN = 3;
 
-/** Account-level news at the top of the page. */
+const alertKey = (alert: Alert) => `${alert.key}-${alert.at}`;
+
+/**
+ * Account-level news at the top of the page. The wrapper is a live region
+ * that is always mounted, even when empty, so a banner a poll brings in is
+ * read out when it appears. Its text never changes while it is shown, so
+ * later polls don't read it again.
+ */
 export function Banner({
   needsReauth,
   notice,
@@ -24,9 +34,8 @@ export function Banner({
   needsReauth: boolean;
   notice: Notice | null;
 }) {
-  if (!needsReauth && notice === null) return null;
   return (
-    <div className={styles.banners}>
+    <div className={styles.banners} aria-live="polite" data-banner-live="">
       {needsReauth && (
         <p className={cx(styles.banner, styles.problem)}>
           Buffer disconnected Ferry.{" "}
@@ -35,7 +44,6 @@ export function Banner({
       )}
       {notice !== null && (
         <p
-          role="status"
           className={cx(
             styles.banner,
             notice !== "discord-connected" && styles.problem,
@@ -78,31 +86,56 @@ export default function Alerts({
   alerts: Alert[];
   now: number;
 }) {
-  if (alerts.length === 0) return null;
+  const live = useRef<HTMLParagraphElement>(null);
+  const seen = useRef<Set<string> | null>(null);
+
+  // Read out each alert once, the first time a poll brings it in. The list
+  // itself isn't live: its relative times change as the clock ticks.
+  useEffect(() => {
+    const before = seen.current;
+    seen.current = new Set(alerts.map(alertKey));
+    if (before === null) return;
+    const fresh = alerts.filter((a) => !before.has(alertKey(a)));
+    if (fresh.length > 0 && live.current)
+      live.current.textContent = fresh
+        .map((a) => `Needs attention: ${a.message}`)
+        .join(" ");
+  }, [alerts]);
+
   const recent = alerts.slice(0, SHOWN);
   const older = alerts.slice(SHOWN);
   return (
-    <section aria-labelledby="alerts-title" className={styles.alerts}>
-      <h2 id="alerts-title" className={ui.heading}>
-        Needs attention
-      </h2>
-      <ul className={styles.list}>
-        {recent.map((a) => (
-          <AlertItem key={`${a.key}-${a.at}`} alert={a} now={now} />
-        ))}
-      </ul>
-      {older.length > 0 && (
-        <details>
-          <summary className={cx(ui.button, ui.disclosure)}>
-            {plural(older.length, "older alert", "older alerts")}
-          </summary>
+    <>
+      <p
+        ref={live}
+        aria-live="polite"
+        className="visually-hidden"
+        data-alerts-live=""
+      />
+      {alerts.length > 0 && (
+        <section aria-labelledby="alerts-title" className={styles.alerts}>
+          <h2 id="alerts-title" className={ui.heading}>
+            Needs attention
+          </h2>
           <ul className={styles.list}>
-            {older.map((a) => (
-              <AlertItem key={`${a.key}-${a.at}`} alert={a} now={now} />
+            {recent.map((a) => (
+              <AlertItem key={alertKey(a)} alert={a} now={now} />
             ))}
           </ul>
-        </details>
+          {older.length > 0 && (
+            <details>
+              <summary className={cx(ui.button, ui.disclosure)}>
+                {plural(older.length, "older alert", "older alerts")}
+              </summary>
+              <ul className={styles.list}>
+                {older.map((a) => (
+                  <AlertItem key={alertKey(a)} alert={a} now={now} />
+                ))}
+              </ul>
+            </details>
+          )}
+        </section>
       )}
-    </section>
+    </>
   );
 }

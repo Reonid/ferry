@@ -34,12 +34,29 @@ async function tabTo(page: Page, target: Locator, max = 80): Promise<void> {
   throw new Error(`Tab never reached ${target.toString()}`);
 }
 
-/** Serves /api/live with one extra post that has just been delivered. */
-async function deliverDuringTest(page: Page): Promise<void> {
+type Snapshot = Record<string, unknown> & {
+  account: Record<string, unknown>;
+  activity: unknown[];
+  alerts: unknown[];
+};
+
+/** Serves every /api/live poll with the real snapshot, changed by `change`. */
+async function serveLive(
+  page: Page,
+  change: (snapshot: Snapshot) => void,
+): Promise<void> {
   await page.route("**/api/live", async (route) => {
     const response = await route.fetch();
-    const snapshot = (await response.json()) as { activity: unknown[] };
-    const now = Date.now();
+    const snapshot = (await response.json()) as Snapshot;
+    change(snapshot);
+    await route.fulfill({ response, json: snapshot });
+  });
+}
+
+/** Serves /api/live with one extra post that has just been delivered. */
+async function deliverDuringTest(page: Page): Promise<void> {
+  const now = Date.now();
+  await serveLive(page, (snapshot) => {
     snapshot.activity.unshift({
       groupKey: "e2e-group-new",
       excerpt: "A new post crossing while the test watches.",
@@ -49,8 +66,39 @@ async function deliverDuringTest(page: Page): Promise<void> {
         { destinationId: "dev-discord", status: "delivered", at: now },
       ],
     });
-    await route.fulfill({ response, json: snapshot });
   });
+}
+
+/**
+ * Counts DOM changes inside `selector` while one more poll lands. A live
+ * region that changes on every poll would be read out on every poll.
+ */
+async function changesDuringNextPoll(
+  page: Page,
+  selector: string,
+): Promise<number> {
+  await page.evaluate((sel) => {
+    const counter = window as unknown as { changes: number };
+    counter.changes = 0;
+    new MutationObserver((records) => {
+      counter.changes += records.length;
+    }).observe(document.querySelector(sel)!, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+      attributes: true,
+    });
+  }, selector);
+  const polled = page.waitForResponse((r) => r.url().endsWith("/api/live"));
+  // The dashboard polls at once whenever the tab reports it is visible.
+  await page.evaluate(() =>
+    document.dispatchEvent(new Event("visibilitychange")),
+  );
+  await polled;
+  await page.waitForTimeout(500);
+  return page.evaluate(
+    () => (window as unknown as { changes: number }).changes,
+  );
 }
 
 test("shows the seeded route in the map and the list", async ({ page }) => {
@@ -157,4 +205,87 @@ test("highlights the lane instead under reduced motion", async ({ page }) => {
 
   await expect(page.locator("[data-lit]")).toBeVisible({ timeout: 15_000 });
   await expect(page.locator("[data-boat]")).toHaveCount(0);
+});
+
+test("keeps focus in the routes section after deleting a route", async ({
+  page,
+}) => {
+  await openDashboard(page);
+  const routes = page.getByRole("region", { name: "Routes" });
+  const route = routes
+    .getByRole("listitem")
+    .filter({ hasText: "Bluesky, LinkedIn → #announcements" });
+
+  await route.getByRole("button", { name: "Delete" }).focus();
+  await page.keyboard.press("Enter");
+
+  await expect(route).toHaveCount(0);
+  await expect(routes.getByRole("heading", { name: "Routes" })).toBeFocused();
+  await expect(routes.locator("[role=status][data-section-status]")).toHaveText(
+    "Route deleted.",
+  );
+});
+
+test("keeps focus in destinations after removing one", async ({ page }) => {
+  await openDashboard(page);
+  const destinations = page.getByRole("region", { name: "Destinations" });
+  const reddit = destinations
+    .getByRole("listitem")
+    .filter({ hasText: "r/SideProject" });
+
+  await reddit.getByText("Remove", { exact: true }).click();
+  await reddit.getByRole("button", { name: "Remove r/SideProject" }).click();
+
+  await expect(reddit).toHaveCount(0);
+  await expect(
+    destinations.getByRole("heading", { name: "Destinations" }),
+  ).toBeFocused();
+  await expect(
+    destinations.locator("[role=status][data-section-status]"),
+  ).toHaveText("Destination removed.");
+});
+
+test("announces the re-auth banner from a poll", async ({ page }) => {
+  await serveLive(page, (snapshot) => {
+    snapshot.account.status = "needs_reauth";
+  });
+  await openDashboard(page);
+
+  const region = page.locator('[aria-live="polite"][data-banner-live]');
+  await expect(region).toContainText(
+    "Buffer disconnected Ferry. Sign in again.",
+  );
+  await expect(
+    region.getByRole("link", { name: "Sign in again." }),
+  ).toHaveAttribute("href", "/api/auth/buffer");
+
+  // The page arrived without the banner, but with the live region in place.
+  const html = await (await page.request.get("/app")).text();
+  expect(html).toContain("data-banner-live");
+  expect(html).not.toContain("Buffer disconnected Ferry.");
+
+  // Later polls leave the banner alone, so it is read out only once.
+  expect(await changesDuringNextPoll(page, "[data-banner-live]")).toBe(0);
+});
+
+test("announces a new alert from a poll, once", async ({ page }) => {
+  const message = "Buffer couldn't publish a post on Ferry Dev.";
+  const at = Date.now();
+  await serveLive(page, (snapshot) => {
+    snapshot.alerts.unshift({
+      key: "e2e-alert",
+      message,
+      supportUrl: null,
+      at,
+    });
+  });
+  await openDashboard(page);
+
+  await expect(
+    page.locator('[aria-live="polite"][data-alerts-live]'),
+  ).toHaveText(`Needs attention: ${message}`);
+  await expect(
+    page.getByRole("region", { name: "Needs attention" }).getByText(message),
+  ).toBeVisible();
+  expect(await changesDuringNextPoll(page, "[data-alerts-live]")).toBe(0);
 });

@@ -64,16 +64,21 @@
   text-decoration: underline;
 }
 
+/* The banner's live region sits outside the stack: it is always mounted,
+   and an empty grid item would still add a gap. */
 .main {
   inline-size: 100%;
   max-width: var(--page-max);
   margin: 0 auto;
   padding: var(--space-5) var(--gutter) var(--space-8);
+}
+
+.stack {
   display: grid;
   gap: var(--space-7);
 }
 
-.main > *,
+.stack > *,
 .column > * {
   min-width: 0;
 }

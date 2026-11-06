@@ -10,7 +10,14 @@ import {
   removeDestinationAction,
   renameDestinationAction,
 } from "./actions";
-import { cx, FormStatus, SubmitButton, useFormAction } from "./FormParts";
+import {
+  cx,
+  FormStatus,
+  SectionStatus,
+  SubmitButton,
+  useFormAction,
+  useSectionStatus,
+} from "./FormParts";
 import styles from "./Destinations.module.css";
 
 async function rename(
@@ -24,12 +31,19 @@ async function rename(
 function DestinationRow({
   destination,
   routeCount,
+  onRemoved,
 }: {
   destination: PublicDestination;
   routeCount: number;
+  onRemoved: () => void;
 }) {
   const renaming = useFormAction(rename);
-  const removing = useFormAction(removeDestinationAction);
+  // A removed row takes its status line with it; the section reports.
+  const removing = useFormAction(removeDestinationAction, {
+    onResult: (answer) => {
+      if (answer.ok) onRemoved();
+    },
+  });
   const nameId = useId();
   const inputId = useId();
   const broken = destination.status === "broken";
@@ -118,6 +132,7 @@ export default function Destinations({
   routes: Route[];
 }) {
   const adding = useFormAction(addRedditAction, { resetOnSuccess: true });
+  const { heading, message, report } = useSectionStatus();
   const subredditId = useId();
   const hintId = useId();
   return (
@@ -126,9 +141,15 @@ export default function Destinations({
       aria-labelledby="destinations-title"
       className={ui.section}
     >
-      <h2 id="destinations-title" className={ui.heading}>
+      <h2
+        id="destinations-title"
+        ref={heading}
+        tabIndex={-1}
+        className={ui.heading}
+      >
         Destinations
       </h2>
+      <SectionStatus message={message} />
       {destinations.length > 0 && (
         <ul className={styles.list}>
           {destinations.map((d) => (
@@ -136,6 +157,7 @@ export default function Destinations({
               key={d.id}
               destination={d}
               routeCount={routes.filter((r) => r.destinationId === d.id).length}
+              onRemoved={() => report("Destination removed.")}
             />
           ))}
         </ul>

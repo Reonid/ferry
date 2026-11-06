@@ -1,6 +1,11 @@
+/* Always mounted as a live region; it only takes space when it has news. */
 .banners {
   display: grid;
   gap: var(--space-3);
+}
+
+.banners:not(:empty) {
+  margin-block-end: var(--space-7);
 }
 
 .banner {

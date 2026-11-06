@@ -3,6 +3,10 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "e2e",
   forbidOnly: !!process.env.CI,
+  // Every test signs in to the same seeded dev account in one in-memory
+  // store, and some tests change it (deleting a route), so they take turns.
+  // Each test re-seeds the account when it signs in.
+  workers: 1,
   use: { baseURL: "http://localhost:3100" },
   // Chromium only (CI installs just that browser). Pixel 7 rather than an
   // iPhone profile because iPhone profiles run on WebKit.

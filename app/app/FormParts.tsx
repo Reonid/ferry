@@ -3,6 +3,8 @@
 import {
   startTransition,
   useActionState,
+  useCallback,
+  useRef,
   useState,
   type FormEvent,
   type ReactNode,
@@ -29,16 +31,25 @@ interface Submission {
  * onSubmit rather than the action prop: React resets a form after any action
  * prop runs, which would wipe what people typed when the action reports an
  * error. `intent` is the value of the button that submitted the form.
+ * `onResult` hears every answer, for work beyond the form, such as when
+ * the form itself goes away because the action succeeded.
  */
 export function useFormAction(
   action: ServerAction,
-  { resetOnSuccess = false }: { resetOnSuccess?: boolean } = {},
+  {
+    resetOnSuccess = false,
+    onResult,
+  }: {
+    resetOnSuccess?: boolean;
+    onResult?: (result: ActionResult, formData: FormData) => void;
+  } = {},
 ) {
   const [intent, setIntent] = useState<string | null>(null);
   const [result, dispatch, pending] = useActionState(
     async (prev: ActionResult | null, { formData, form }: Submission) => {
       const next = await action(prev, formData);
       if (next.ok && resetOnSuccess) form.reset();
+      onResult?.(next, formData);
       return next;
     },
     null,
@@ -84,6 +95,38 @@ export function SubmitButton({
     >
       {busy && busyLabel ? busyLabel : children}
     </button>
+  );
+}
+
+export interface SectionMessage {
+  id: number;
+  text: string;
+}
+
+/**
+ * For results that outlive the control that caused them. When an action
+ * removes its own row, the row's status line and the focused button go with
+ * it. `report` puts the message (if any) in the section's status line and
+ * moves focus to the section heading, which needs tabIndex={-1}.
+ */
+export function useSectionStatus() {
+  const heading = useRef<HTMLHeadingElement>(null);
+  const [message, setMessage] = useState<SectionMessage | null>(null);
+  const report = useCallback((text: string | null) => {
+    if (text !== null)
+      setMessage((last) => ({ id: (last?.id ?? 0) + 1, text }));
+    heading.current?.focus();
+  }, []);
+  return { heading, message, report };
+}
+
+/** A section's live line. Always mounted, so it is in place before news. */
+export function SectionStatus({ message }: { message: SectionMessage | null }) {
+  return (
+    <p role="status" className={ui.status} data-section-status="">
+      {/* A new span per message, so the same words twice are read twice. */}
+      {message && <span key={message.id}>{message.text}</span>}
+    </p>
   );
 }
 

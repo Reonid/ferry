@@ -12,7 +12,14 @@ import {
   sendLatestAction,
   toggleRouteAction,
 } from "./actions";
-import { cx, FormStatus, SubmitButton, useFormAction } from "./FormParts";
+import {
+  cx,
+  FormStatus,
+  SectionStatus,
+  SubmitButton,
+  useFormAction,
+  useSectionStatus,
+} from "./FormParts";
 import styles from "./RouteList.module.css";
 
 export const TIMING_NOTE =
@@ -42,8 +49,21 @@ async function routeAction(
   }
 }
 
-function RouteRow({ route, label }: { route: Route; label: string }) {
-  const { result, pending, intent, onSubmit } = useFormAction(routeAction);
+function RouteRow({
+  route,
+  label,
+  onDeleted,
+}: {
+  route: Route;
+  label: string;
+  onDeleted: () => void;
+}) {
+  const { result, pending, intent, onSubmit } = useFormAction(routeAction, {
+    // A deleted row takes its status line with it; the section reports.
+    onResult: (answer, formData) => {
+      if (answer.ok && formData.get("intent") === "delete") onDeleted();
+    },
+  });
   const nameId = useId();
   const busy = (name: string) => pending && intent === name;
   const filter =
@@ -200,11 +220,13 @@ export default function RouteList({
 }) {
   // Open the form when there's nothing yet; after that, people choose.
   const [startOpen] = useState(routes.length === 0);
+  const { heading, message, report } = useSectionStatus();
   return (
     <section id="routes" aria-labelledby="routes-title" className={ui.section}>
-      <h2 id="routes-title" className={ui.heading}>
+      <h2 id="routes-title" ref={heading} tabIndex={-1} className={ui.heading}>
         Routes
       </h2>
+      <SectionStatus message={message} />
       {destinations.length === 0 ? (
         <div className={styles.empty}>
           <p>
@@ -224,6 +246,7 @@ export default function RouteList({
                   key={route.id}
                   route={route}
                   label={routeLabel(route, channels, destinations)}
+                  onDeleted={() => report("Route deleted.")}
                 />
               ))}
             </ul>

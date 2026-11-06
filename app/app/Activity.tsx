@@ -13,13 +13,32 @@ import { serviceLabel } from "@/lib/mirror/services";
 import type { ActivityEntry, PublicDestination } from "@/lib/types";
 import ui from "../components/ui.module.css";
 import { retryAction } from "./actions";
-import { cx, FormStatus, SubmitButton, useFormAction } from "./FormParts";
+import {
+  cx,
+  FormStatus,
+  SubmitButton,
+  useFormAction,
+  useSectionStatus,
+} from "./FormParts";
 import styles from "./Activity.module.css";
 
 type Delivery = ActivityEntry["deliveries"][number];
 
-function Retry({ jobId, describedBy }: { jobId: string; describedBy: string }) {
-  const { result, pending, onSubmit } = useFormAction(retryAction);
+function Retry({
+  jobId,
+  describedBy,
+  onRetried,
+}: {
+  jobId: string;
+  describedBy: string;
+  onRetried: () => void;
+}) {
+  // A retried delivery leaves "failed", and this button goes with it.
+  const { result, pending, onSubmit } = useFormAction(retryAction, {
+    onResult: (answer) => {
+      if (answer.ok) onRetried();
+    },
+  });
   return (
     <form onSubmit={onSubmit} className={styles.retry}>
       <input type="hidden" name="jobId" value={jobId} />
@@ -39,10 +58,12 @@ function DeliveryRow({
   delivery,
   destination,
   excerptId,
+  onRetried,
 }: {
   delivery: Delivery;
   destination: string;
   excerptId: string;
+  onRetried: () => void;
 }) {
   const label = STATUS_LABEL[delivery.status];
   // Without a stored link, a ready draft still waits in the tray below.
@@ -59,7 +80,11 @@ function DeliveryRow({
         <span className={styles.reason}>{delivery.reason}</span>
       )}
       {delivery.status === "failed" && delivery.jobId && (
-        <Retry jobId={delivery.jobId} describedBy={excerptId} />
+        <Retry
+          jobId={delivery.jobId}
+          describedBy={excerptId}
+          onRetried={onRetried}
+        />
       )}
     </li>
   );
@@ -69,10 +94,12 @@ function Entry({
   entry,
   destinations,
   now,
+  onRetried,
 }: {
   entry: ActivityEntry;
   destinations: PublicDestination[];
   now: number;
+  onRetried: () => void;
 }) {
   const excerptId = useId();
   return (
@@ -98,6 +125,7 @@ function Entry({
             delivery={d}
             destination={destinationName(d.destinationId, destinations)}
             excerptId={excerptId}
+            onRetried={onRetried}
           />
         ))}
       </ul>
@@ -116,6 +144,9 @@ export default function Activity({
 }) {
   const live = useRef<HTMLParagraphElement>(null);
   const seen = useRef<ActivityEntry[] | null>(null);
+  // After a retry, focus waits on the heading; the live region below says
+  // what happened to the delivery.
+  const { heading, report } = useSectionStatus();
 
   // Announce new entries and status changes; the first render stays quiet.
   useEffect(() => {
@@ -131,7 +162,12 @@ export default function Activity({
       aria-labelledby="activity-title"
       className={ui.section}
     >
-      <h2 id="activity-title" className={ui.heading}>
+      <h2
+        id="activity-title"
+        ref={heading}
+        tabIndex={-1}
+        className={ui.heading}
+      >
         Activity
       </h2>
       <p
@@ -153,6 +189,7 @@ export default function Activity({
               entry={entry}
               destinations={destinations}
               now={now}
+              onRetried={() => report(null)}
             />
           ))}
         </ol>
