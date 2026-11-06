@@ -22,6 +22,12 @@ export default defineConfig({
       SESSION_SECRET: "test-session-secret-0123456789-abcdefghi",
       ENCRYPTION_KEY: Buffer.alloc(32).toString("base64"),
       NEXT_PUBLIC_BASE_URL: "http://localhost:3100",
+      // Set but empty, so values in .env.local never apply: browser tests
+      // must use the in-memory store, never a real Redis database.
+      UPSTASH_REDIS_REST_URL: "",
+      UPSTASH_REDIS_REST_TOKEN: "",
+      KV_REST_API_URL: "",
+      KV_REST_API_TOKEN: "",
     },
   },
 });
