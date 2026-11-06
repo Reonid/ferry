@@ -127,7 +127,15 @@ export async function bufferRequest<T>(args: {
       : codes.some((c) => typeof c === "string" && c.includes("RATE_LIMIT"))
         ? "rate_limit"
         : "api";
-    throw new BufferError(message, { kind, status: response.status });
+    const retryAfterMs =
+      kind === "rate_limit"
+        ? parseRetryAfter(response.headers.get("retry-after"), now)
+        : undefined;
+    throw new BufferError(message, {
+      kind,
+      status: response.status,
+      ...(retryAfterMs !== undefined && { retryAfterMs }),
+    });
   }
 
   if (body.data === undefined || body.data === null) {

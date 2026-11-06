@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { HEARTBEAT_MAX_MS, OVERDUE_BASE_MS, OVERLAP_MS } from "../constants";
 import { account } from "../delivery/test-support";
+
+const MINUTE = 60_000;
+const SYNC_FAILING =
+  "Ferry can't reach Buffer right now. It will keep trying, and this goes away once a check succeeds.";
 import { dayKey } from "../time";
 import { runSync } from "./runner";
 import {
@@ -141,6 +145,94 @@ describe("runSync", () => {
     expect(report.status).toBe("error");
     expect(report.nextRunAt).toBe(NOW + 2 * OVERDUE_BASE_MS);
     expect((await store.getSyncState("acct")).checkpoint).toBeNull();
+  });
+
+  it("backs off exponentially on repeated errors, capped at an hour", async () => {
+    const { deps, store } = makeSyncDeps(
+      {},
+      new BufferError("down", { kind: "network" }),
+    );
+    await seed(store);
+    const waits: number[] = [];
+    for (let i = 1; i <= 8; i++) {
+      const report = await runSync("acct", deps);
+      expect(report.status).toBe("error");
+      const state = await store.getSyncState("acct");
+      expect(state.failureCount).toBe(i);
+      expect(state.retryAt).toBe(report.nextRunAt);
+      expect(state.nextRunAt).toBe(report.nextRunAt);
+      waits.push((report.nextRunAt! - NOW) / MINUTE);
+    }
+    expect(waits).toEqual([2, 4, 8, 16, 32, 60, 60, 60]);
+    expect((await store.getSyncState("acct")).checkpoint).toBeNull();
+  });
+
+  it("backs off on a rate limit without Retry-After, and counts one with it", async () => {
+    const { deps, store, buffer } = makeSyncDeps();
+    await seed(store);
+    deps.jitterMs = () => 1234;
+    const limited = (retryAfterMs?: number) =>
+      buffer.mockRejectedValueOnce(
+        new BufferError("slow", {
+          kind: "rate_limit",
+          ...(retryAfterMs !== undefined && { retryAfterMs }),
+        }),
+      );
+
+    limited();
+    const first = await runSync("acct", deps);
+    expect(first.status).toBe("rate_limited");
+    expect(first.nextRunAt).toBe(NOW + 2 * MINUTE);
+
+    limited(90_000);
+    const second = await runSync("acct", deps);
+    expect(second.nextRunAt).toBe(NOW + 90_000 + 1234);
+    expect((await store.getSyncState("acct")).failureCount).toBe(2);
+
+    // Never sooner than a minute, even when Buffer says to retry at once.
+    limited(0);
+    expect((await runSync("acct", deps)).nextRunAt).toBe(NOW + 60_000 + 1234);
+
+    limited();
+    expect((await runSync("acct", deps)).nextRunAt).toBe(NOW + 16 * MINUTE);
+    expect(await store.getSyncState("acct")).toMatchObject({
+      failureCount: 4,
+      retryAt: NOW + 16 * MINUTE,
+    });
+  });
+
+  it("alerts once after five failed checks and clears the alert on success", async () => {
+    const { deps, store, buffer, calls } = makeSyncDeps();
+    await seed(store);
+    await store.putAccount(account({ notifyDestinationId: "d1" }));
+    const healthy = buffer.getMockImplementation()!;
+    buffer.mockImplementation(async () => {
+      throw new BufferError("down", { kind: "api", status: 503 });
+    });
+    const raised: number[] = [];
+    for (let i = 0; i < 7; i++)
+      raised.push((await runSync("acct", deps)).alerts);
+    expect(raised).toEqual([0, 0, 0, 0, 1, 0, 0]);
+    expect(await store.listAlerts("acct", 10)).toEqual([
+      { key: "sync-failing", message: SYNC_FAILING, supportUrl: null, at: NOW },
+    ]);
+    expect(calls.map((c) => c.messages[0]?.content)).toEqual([
+      `Ferry alert: ${SYNC_FAILING}`,
+    ]);
+
+    buffer.mockImplementation(healthy);
+    expect((await runSync("acct", deps)).status).toBe("ok");
+    expect((await store.getSyncState("acct")).failureCount).toBe(0);
+    expect(await store.listAlerts("acct", 10)).toEqual([]);
+    // The marker went with it, so a later outage alerts again.
+    expect(
+      await store.raiseAlertOnce("acct", {
+        key: "sync-failing",
+        message: SYNC_FAILING,
+        supportUrl: null,
+        at: NOW,
+      }),
+    ).toBe(true);
   });
 
   it("alerts once for a disconnected channel across two syncs", async () => {

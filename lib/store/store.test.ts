@@ -157,6 +157,27 @@ describe("sync schedule", () => {
       liveUntil: null,
       lastSendLatestAt: null,
       retryAt: null,
+      failureCount: 0,
+    });
+  });
+
+  it("fills fields a saved sync state predates", async () => {
+    await redis.set(
+      "ferry:sync:old",
+      JSON.stringify({
+        checkpoint: 5,
+        overdueAttempts: 1,
+        lastSyncAt: 5,
+        nextRunAt: 9,
+        liveUntil: null,
+        lastSendLatestAt: null,
+        retryAt: null,
+      }),
+    );
+    expect(await store.getSyncState("old")).toMatchObject({
+      checkpoint: 5,
+      nextRunAt: 9,
+      failureCount: 0,
     });
   });
 });

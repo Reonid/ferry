@@ -4,11 +4,14 @@ import { mapSyncData } from "../buffer/map";
 import { buildSyncQuery, syncVariables } from "../buffer/queries";
 import { TokenBusyError } from "../buffer/tokens";
 import {
+  BACKOFF_BASE_MS,
+  BACKOFF_MAX_MS,
   HEARTBEAT_MAX_MS,
   LOCK_SYNC_MS,
   LOOKAHEAD_MS,
-  OVERDUE_BASE_MS,
   OVERLAP_MS,
+  RATE_LIMIT_MIN_MS,
+  SYNC_FAILURE_ALERT_AT,
 } from "../constants";
 import { deliverToDestination, type DeliverDeps } from "../delivery/deliver";
 import { serviceLabel } from "../mirror/services";
@@ -23,6 +26,7 @@ import type {
   Post,
   RateLimitSnapshot,
   Route,
+  SyncState,
 } from "../types";
 import { heartbeatMs, liveAllowed } from "./budget";
 import { planNextSync } from "./planner";
@@ -47,6 +51,14 @@ export interface SyncReport {
 }
 
 const HOUR_24 = 24 * 60 * 60 * 1000;
+const SYNC_FAILING_KEY = "sync-failing";
+const SYNC_FAILING_MESSAGE =
+  "Ferry can't reach Buffer right now. It will keep trying, and this goes away once a check succeeds.";
+
+/** The wait after `failures` failed checks in a row: 2 minutes, doubling, at most an hour. */
+export function backoffMs(failures: number): number {
+  return Math.min(BACKOFF_BASE_MS * 2 ** failures, BACKOFF_MAX_MS);
+}
 
 export function channelLabel(
   channels: Channel[],
@@ -75,13 +87,16 @@ export async function runSync(
   if (lock === null) return { ...report, status: "locked" };
   const start = deps.now();
 
-  async function schedule(at: number, retryAt?: number): Promise<void> {
+  async function schedule(
+    at: number,
+    changes: Partial<SyncState> = {},
+  ): Promise<void> {
     await store.scheduleSync(accountId, at);
     const state = await store.getSyncState(accountId);
     await store.putSyncState(accountId, {
       ...state,
       nextRunAt: at,
-      ...(retryAt !== undefined ? { retryAt } : {}),
+      ...changes,
     });
     report.nextRunAt = at;
   }
@@ -197,7 +212,9 @@ export async function runSync(
         overdueAttempts: overdue ? state.overdueAttempts + 1 : 0,
         nextRunAt: plan.at,
         retryAt: null,
+        failureCount: 0,
       });
+      await store.clearAlertKey(accountId, SYNC_FAILING_KEY);
       report.nextRunAt = plan.at;
       return report;
     } catch (err) {
@@ -212,15 +229,23 @@ export async function runSync(
         await schedule(start + HEARTBEAT_MAX_MS);
         return { ...report, status: "needs_reauth" };
       }
-      if (err instanceof BufferError && err.kind === "rate_limit") {
-        const at =
-          start +
-          (err.retryAfterMs ?? OVERDUE_BASE_MS) +
-          (deps.jitterMs?.() ?? 0);
-        await schedule(at, at);
-        return { ...report, status: "rate_limited" };
-      }
-      await schedule(start + 2 * OVERDUE_BASE_MS, start + 2 * OVERDUE_BASE_MS);
+      // Backs off on each failure in a row. Buffer's Retry-After wins when
+      // it sends one, and a rate limit never retries in under a minute.
+      const rateLimited =
+        err instanceof BufferError && err.kind === "rate_limit";
+      const failures = state.failureCount;
+      const retryAfterMs = rateLimited ? err.retryAfterMs : undefined;
+      const wait =
+        retryAfterMs !== undefined
+          ? Math.max(retryAfterMs, RATE_LIMIT_MIN_MS) + (deps.jitterMs?.() ?? 0)
+          : rateLimited
+            ? Math.max(backoffMs(failures), RATE_LIMIT_MIN_MS)
+            : backoffMs(failures);
+      const at = start + wait;
+      await schedule(at, { retryAt: at, failureCount: failures + 1 });
+      if (failures + 1 >= SYNC_FAILURE_ALERT_AT)
+        await alert(account, SYNC_FAILING_KEY, SYNC_FAILING_MESSAGE, null);
+      if (rateLimited) return { ...report, status: "rate_limited" };
       if (err instanceof BufferError || err instanceof TokenBusyError)
         return { ...report, status: "error" };
       throw err;

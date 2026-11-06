@@ -12,6 +12,7 @@ const state = (over: Partial<SyncState> = {}): SyncState => ({
   liveUntil: null,
   lastSendLatestAt: null,
   retryAt: null,
+  failureCount: 0,
   ...over,
 });
 const run = (accountId: string, s: SyncState) =>

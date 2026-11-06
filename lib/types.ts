@@ -195,6 +195,8 @@ export interface SyncState {
   liveUntil: number | null;
   lastSendLatestAt: number | null;
   retryAt: number | null;
+  /** Checks in a row that failed; 0 after a check succeeds. */
+  failureCount: number;
 }
 export interface RetryJob {
   id: string;

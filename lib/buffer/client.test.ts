@@ -68,6 +68,32 @@ describe("bufferRequest", () => {
     expect(e.retryAfterMs).toBe(30000);
   });
 
+  it("reads Retry-After on a GraphQL rate-limit error", async () => {
+    const e = await failure((async () =>
+      json(
+        {
+          errors: [
+            {
+              message: "Too many requests",
+              extensions: { code: "RATE_LIMIT_EXCEEDED" },
+            },
+          ],
+        },
+        {
+          headers: { "content-type": "application/json", "retry-after": "45" },
+        },
+      )) as typeof fetch);
+    expect(e.kind).toBe("rate_limit");
+    expect(e.retryAfterMs).toBe(45_000);
+
+    const bare = await failure((async () =>
+      json({
+        errors: [{ message: "slow", extensions: { code: "RATE_LIMITED" } }],
+      })) as typeof fetch);
+    expect(bare.kind).toBe("rate_limit");
+    expect(bare.retryAfterMs).toBeUndefined();
+  });
+
   it("maps an UNAUTHENTICATED GraphQL error to auth", async () => {
     const e = await failure((async () =>
       json({

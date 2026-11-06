@@ -227,17 +227,18 @@ export function createStore(redis: RedisLike, key: Buffer): Store {
     },
 
     async getSyncState(id) {
-      return (
-        (await getJson<SyncState>(k.sync(id))) ?? {
-          checkpoint: null,
-          overdueAttempts: 0,
-          lastSyncAt: null,
-          nextRunAt: null,
-          liveUntil: null,
-          lastSendLatestAt: null,
-          retryAt: null,
-        }
-      );
+      // Defaults also fill fields added after a state was saved.
+      return {
+        checkpoint: null,
+        overdueAttempts: 0,
+        lastSyncAt: null,
+        nextRunAt: null,
+        liveUntil: null,
+        lastSendLatestAt: null,
+        retryAt: null,
+        failureCount: 0,
+        ...(await getJson<SyncState>(k.sync(id))),
+      };
     },
     putSyncState: (id, s) => setJson(k.sync(id), s),
 
