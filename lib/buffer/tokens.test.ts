@@ -91,6 +91,81 @@ describe("getAccessToken", () => {
     expect(b).toBe("new-a");
   });
 
+  it("re-reads tokens inside the lock", async () => {
+    await store.putTokens("acc", stale);
+    let saved = false;
+    let openRefresh = () => {};
+    const refreshGate = new Promise<void>((resolve) => {
+      openRefresh = resolve;
+    });
+    const refresh = vi.fn(async () => {
+      await refreshGate;
+      return renewed;
+    });
+    const first: Store = {
+      ...store,
+      async putTokens(id, tokens) {
+        await store.putTokens(id, tokens);
+        saved = true;
+      },
+    };
+    // The second caller's re-read after its sleep still finds the stale
+    // pair, and the lock only opens to it once the first caller has saved:
+    // only the read inside the lock can see the renewed pair.
+    let reads = 0;
+    const second: Store = {
+      ...store,
+      async getTokens(id) {
+        reads++;
+        return reads === 2 ? stale : store.getTokens(id);
+      },
+      acquireLock: async (name, ttlMs) =>
+        saved ? store.acquireLock(name, ttlMs) : null,
+    };
+    const a = getAccessToken({
+      store: first,
+      accountId: "acc",
+      now: () => NOW,
+      refresh,
+    });
+    const sleep = vi.fn(async () => {
+      openRefresh();
+      await a;
+    });
+    const b = getAccessToken({
+      store: second,
+      accountId: "acc",
+      now: () => NOW,
+      refresh,
+      sleep,
+    });
+    expect(await a).toBe("new-a");
+    expect(await b).toBe("new-a");
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(sleep).toHaveBeenCalledTimes(1);
+    expect(reads).toBe(3);
+  });
+
+  it("saves the new pair before releasing the lock", async () => {
+    await store.putTokens("acc", stale);
+    const atRelease: (TokenSet | null)[] = [];
+    const watched: Store = {
+      ...store,
+      async releaseLock(name, token) {
+        atRelease.push(await store.getTokens("acc"));
+        await store.releaseLock(name, token);
+      },
+    };
+    const token = await getAccessToken({
+      store: watched,
+      accountId: "acc",
+      now: () => NOW,
+      refresh: async () => renewed,
+    });
+    expect(token).toBe("new-a");
+    expect(atRelease).toEqual([renewed]);
+  });
+
   it("throws TokenBusyError when the lock stays held", async () => {
     await store.putTokens("acc", stale);
     await store.acquireLock("refresh:acc", 60_000);
