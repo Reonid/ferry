@@ -9,7 +9,10 @@ export interface SessionData {
   accountId?: string;
 }
 
-function sessionOptions(): SessionOptions {
+/** 30 days, for both the cookie and the seal inside it (iron-session's own default is 14). */
+const SESSION_TTL_S = 60 * 60 * 24 * 30;
+
+export function sessionOptions(): SessionOptions {
   const password = process.env.SESSION_SECRET;
   if (!password || password.length < 32) {
     throw new Error(
@@ -19,11 +22,12 @@ function sessionOptions(): SessionOptions {
   return {
     cookieName: "ferry_session",
     password,
+    ttl: SESSION_TTL_S,
     cookieOptions: {
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 60 * 24 * 30,
+      maxAge: SESSION_TTL_S,
     },
   };
 }
