@@ -7,7 +7,10 @@ import { getStore } from "@/lib/store";
 export async function GET(): Promise<NextResponse> {
   if (
     process.env.NODE_ENV !== "development" ||
-    process.env.FERRY_DEV_LOGIN !== "1"
+    process.env.FERRY_DEV_LOGIN !== "1" ||
+    // The seed overwrites records in place: it only ever gets the in-memory store.
+    process.env.UPSTASH_REDIS_REST_URL ||
+    process.env.KV_REST_API_URL
   ) {
     return new NextResponse("Not found", { status: 404 });
   }
