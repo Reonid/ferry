@@ -32,6 +32,7 @@ export const ALERT_DEDUPE_TTL_S = 7 * 24 * 60 * 60;
 export const ALERTS_KEPT = 20;
 export const IMAGE_TIMEOUT_MS = 15 * SECOND;
 export const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
+export const IMAGE_MAX_REDIRECTS = 3;
 export const DISCORD_CONTENT_MAX = 2000;
 export const DISCORD_USERNAME_MAX = 80;
 export const DISCORD_FILES_MAX = 10;
