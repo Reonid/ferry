@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { currentAccount } from "@/lib/auth/current";
+import { logSignInFailure } from "@/lib/auth/sign-in";
 import {
   DISCORD_STATE_COOKIE,
   exchangeDiscordCode,
@@ -61,7 +62,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     try {
       await connect(request);
     } catch (err) {
-      // Details are dropped: errors on this path could echo codes or webhook tokens.
+      // Only the error's name and OAuth code: details could echo codes or webhook tokens.
+      logSignInFailure("Discord connection", err);
       target =
         err instanceof Error && err.message === "no session"
           ? "/"

@@ -3,10 +3,16 @@ const TOKEN_URL = "https://discord.com/api/oauth2/token";
 
 export const DISCORD_STATE_COOKIE = "ferry_discord_state";
 
+/**
+ * A failed webhook exchange. `code` is Discord's `error` value, or
+ * "unreachable", "http_<status>" or "no_webhook". Neither carries secrets.
+ */
 export class DiscordOAuthError extends Error {
-  constructor(message: string) {
+  code: string;
+  constructor(code: string, message: string) {
     super(message);
     this.name = "DiscordOAuthError";
+    this.code = code;
   }
 }
 
@@ -52,14 +58,16 @@ export async function exchangeDiscordCode(args: {
       }).toString(),
     });
   } catch {
-    throw new DiscordOAuthError("Could not reach Discord");
+    throw new DiscordOAuthError("unreachable", "Could not reach Discord");
   }
+  const json: unknown = await res.json().catch(() => null);
   if (!res.ok) {
+    const error = (json as { error?: unknown } | null)?.error;
     throw new DiscordOAuthError(
+      typeof error === "string" && error ? error : `http_${res.status}`,
       `Discord refused the code (HTTP ${res.status})`,
     );
   }
-  const json: unknown = await res.json().catch(() => null);
   const w = (json as { webhook?: Record<string, unknown> } | null)?.webhook;
   if (
     !w ||
@@ -68,7 +76,10 @@ export async function exchangeDiscordCode(args: {
     typeof w.guild_id !== "string" ||
     typeof w.channel_id !== "string"
   ) {
-    throw new DiscordOAuthError("Discord did not return a webhook");
+    throw new DiscordOAuthError(
+      "no_webhook",
+      "Discord did not return a webhook",
+    );
   }
   return {
     webhookId: w.id,

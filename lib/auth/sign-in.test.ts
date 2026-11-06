@@ -1,8 +1,10 @@
 import { randomBytes } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { DiscordOAuthError } from "@/lib/destinations/discord/oauth";
 import { createFakeRedis, createStore } from "@/lib/store";
 import type { Account, Channel, TokenSet } from "@/lib/types";
-import { saveSignIn } from "./sign-in";
+import { OAuthError } from "./buffer-oauth";
+import { logSignInFailure, saveSignIn } from "./sign-in";
 
 const NOW = 5_000_000;
 const tokens: TokenSet = {
@@ -71,5 +73,37 @@ describe("saveSignIn", () => {
         at: 2,
       }),
     ).toBe(true);
+  });
+});
+
+describe("logSignInFailure", () => {
+  it("logs one line: the error's name, and an OAuth error's code", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    logSignInFailure("Buffer sign-in", new OAuthError("invalid_grant"));
+    logSignInFailure(
+      "Discord connection",
+      new DiscordOAuthError("no_webhook", "Discord did not return a webhook"),
+    );
+    logSignInFailure(
+      "Buffer sign-in",
+      new TypeError("token secret-token and code secret-code"),
+    );
+    logSignInFailure("Buffer sign-in", "thrown text");
+    expect(spy.mock.calls).toEqual([
+      ["ferry: Buffer sign-in failed (OAuthError invalid_grant)"],
+      ["ferry: Discord connection failed (DiscordOAuthError no_webhook)"],
+      ["ferry: Buffer sign-in failed (TypeError)"],
+      ["ferry: Buffer sign-in failed (UnknownError)"],
+    ]);
+    spy.mockRestore();
+  });
+
+  it("keeps a provider's code to one plain word", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    logSignInFailure("Buffer sign-in", new OAuthError("bad\nlog line ✓"));
+    expect(spy).toHaveBeenCalledWith(
+      "ferry: Buffer sign-in failed (OAuthError badlogline)",
+    );
+    spy.mockRestore();
   });
 });

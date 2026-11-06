@@ -80,4 +80,35 @@ describe("exchangeDiscordCode", () => {
     expect((err as Error).message).not.toContain("shh-secret");
     expect((err as Error).message).not.toContain("the-code");
   });
+
+  it("gives each failure a code", async () => {
+    const codeFor = async (fetchImpl: typeof fetch) =>
+      (
+        (await exchangeDiscordCode({ ...args, fetchImpl }).catch(
+          (e: unknown) => e,
+        )) as DiscordOAuthError
+      ).code;
+    expect(
+      await codeFor((async () =>
+        Response.json(
+          { error: "invalid_grant" },
+          { status: 400 },
+        )) as unknown as typeof fetch),
+    ).toBe("invalid_grant");
+    expect(
+      await codeFor(
+        (async () =>
+          new Response("down", { status: 502 })) as unknown as typeof fetch,
+      ),
+    ).toBe("http_502");
+    expect(
+      await codeFor((async () => {
+        throw new Error("offline");
+      }) as unknown as typeof fetch),
+    ).toBe("unreachable");
+    expect(
+      await codeFor((async () =>
+        Response.json({ access_token: "x" })) as unknown as typeof fetch),
+    ).toBe("no_webhook");
+  });
 });

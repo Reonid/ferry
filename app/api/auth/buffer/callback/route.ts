@@ -5,7 +5,7 @@ import {
   OAUTH_STATE_COOKIE,
   OAUTH_VERIFIER_COOKIE,
 } from "@/lib/auth/buffer-oauth";
-import { saveSignIn } from "@/lib/auth/sign-in";
+import { logSignInFailure, saveSignIn } from "@/lib/auth/sign-in";
 import { bufferRequest } from "@/lib/buffer/client";
 import { mapAccount, mapChannel } from "@/lib/buffer/map";
 import { ACCOUNT_QUERY, CHANNELS_QUERY } from "@/lib/buffer/queries";
@@ -73,8 +73,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   let target = "/app";
   try {
     await signIn(request);
-  } catch {
-    // Details are dropped: errors on this path could echo codes or tokens.
+  } catch (err) {
+    // Only the error's name and OAuth code: details could echo codes or tokens.
+    logSignInFailure("Buffer sign-in", err);
     target = "/?error=signin";
   }
   const response = NextResponse.redirect(`${baseUrl()}${target}`);
