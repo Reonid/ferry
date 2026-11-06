@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { tabTo } from "./keyboard";
 
 const TIMING_NOTE =
-  "Scheduled posts cross within about 3 minutes, or about a minute while Ferry is open. Posts you publish right away can take longer unless Ferry is open.";
+  "Ferry checks Buffer about once a minute while this page is open, and every 15 minutes to 2 hours otherwise. Posts it already knows about cross within about 3 minutes of going out.";
 
 /** Signs in as the seeded account and waits until the dashboard is hydrated. */
 async function openDashboard(page: Page): Promise<void> {

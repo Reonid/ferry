@@ -23,7 +23,7 @@ import {
 import styles from "./RouteList.module.css";
 
 export const TIMING_NOTE =
-  "Scheduled posts cross within about 3 minutes, or about a minute while Ferry is open. Posts you publish right away can take longer unless Ferry is open.";
+  "Ferry checks Buffer about once a minute while this page is open, and every 15 minutes to 2 hours otherwise. Posts it already knows about cross within about 3 minutes of going out.";
 
 const COPY_TIP =
   "If you write different text for each network, each version arrives separately. Pick one of those channels to get one message per post. The same text posted again within 24 hours counts as a copy and arrives once.";
