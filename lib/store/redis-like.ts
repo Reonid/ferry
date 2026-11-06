@@ -40,4 +40,10 @@ export interface RedisLike {
     },
   ): Promise<string[]>;
   zcard(key: string): Promise<number>;
+  /** Removes members scored from min to max, both inclusive; "-inf" and "+inf" work as bounds. */
+  zremrangebyscore(
+    key: string,
+    min: number | string,
+    max: number | string,
+  ): Promise<number>;
 }

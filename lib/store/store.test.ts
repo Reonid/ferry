@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { randomBytes } from "node:crypto";
+import { ACTIVITY_TTL_S, DRAFT_TTL_S } from "@/lib/constants";
 import { createFakeRedis } from "./fake-redis";
 import type { RedisLike } from "./redis-like";
 import { createStore, type Store } from "./store";
@@ -13,6 +14,8 @@ import type {
   RetryJob,
   Route,
 } from "@/lib/types";
+
+const DAY = 24 * 60 * 60 * 1000;
 
 let redis: RedisLike;
 let store: Store;
@@ -235,6 +238,49 @@ describe("activity", () => {
     vi.advanceTimersByTime(31 * 24 * 60 * 60 * 1000);
     expect(await store.listActivity("acct", 10)).toEqual([]);
   });
+
+  it("trims activity index entries older than the activity window", async () => {
+    vi.setSystemTime(100 * DAY);
+    await store.upsertActivity("acct", entry("old", 100 * DAY));
+    vi.setSystemTime(120 * DAY);
+    await store.upsertActivity("acct", entry("recent", 120 * DAY));
+    // "old" is past the window and its record has expired.
+    vi.setSystemTime(131 * DAY);
+    await store.upsertActivity("acct", entry("new", 131 * DAY));
+    expect(await redis.zrange("ferry:acts:acct", 0, -1)).toEqual([
+      "recent",
+      "new",
+    ]);
+  });
+
+  it("expires the activity index when nothing is written for the window", async () => {
+    await store.upsertActivity("acct", entry("g", Date.now()));
+    vi.advanceTimersByTime(ACTIVITY_TTL_S * 1000 - 1000);
+    expect(await redis.zcard("ferry:acts:acct")).toBe(1);
+    vi.advanceTimersByTime(1000);
+    expect(await redis.zcard("ferry:acts:acct")).toBe(0);
+  });
+
+  it("keeps a fresh entry for an old post listed and deletable", async () => {
+    // A test send or a catch-up sync can record a post published long ago.
+    vi.setSystemTime(200 * DAY);
+    await store.upsertActivity("acct", entry("old-post", 100 * DAY));
+    await store.upsertActivity("acct", entry("other", 200 * DAY));
+    expect(
+      (await store.listActivity("acct", 10)).map((e) => e.groupKey),
+    ).toEqual(["other", "old-post"]);
+
+    await store.deleteAccountData("acct");
+    expect(await store.getActivity("acct", "old-post")).toBeNull();
+  });
+
+  it("drops an old post's entry once its record has expired", async () => {
+    vi.setSystemTime(200 * DAY);
+    await store.upsertActivity("acct", entry("old-post", 100 * DAY));
+    vi.setSystemTime(231 * DAY);
+    await store.upsertActivity("acct", entry("later", 231 * DAY));
+    expect(await redis.zrange("ferry:acts:acct", 0, -1)).toEqual(["later"]);
+  });
 });
 
 describe("drafts", () => {
@@ -249,6 +295,44 @@ describe("drafts", () => {
     vi.advanceTimersByTime(8 * 24 * 60 * 60 * 1000);
     expect(await store.listDrafts("acct", 10)).toEqual([]);
     expect(await store.getDraft("t1")).toBeNull();
+  });
+
+  it("trims and expires the drafts index the same way", async () => {
+    vi.setSystemTime(100 * DAY);
+    await store.putDraft({ ...draft("old", "acct"), createdAt: 100 * DAY });
+    vi.setSystemTime(104 * DAY);
+    await store.putDraft({ ...draft("recent", "acct"), createdAt: 104 * DAY });
+    vi.setSystemTime(108 * DAY);
+    await store.putDraft({ ...draft("new", "acct"), createdAt: 108 * DAY });
+    expect(await redis.zrange("ferry:drafts:acct", 0, -1)).toEqual([
+      "recent",
+      "new",
+    ]);
+
+    // With no further drafts, the whole index goes a window after the last.
+    vi.advanceTimersByTime(DRAFT_TTL_S * 1000 - 1000);
+    expect(await redis.zcard("ferry:drafts:acct")).toBe(2);
+    vi.advanceTimersByTime(1000);
+    expect(await redis.zcard("ferry:drafts:acct")).toBe(0);
+  });
+});
+
+describe("fake redis zremrangebyscore", () => {
+  it("removes members within the score bounds, -inf included", async () => {
+    for (const [member, score] of [
+      ["a", 1],
+      ["b", 5],
+      ["c", 10],
+    ] as const)
+      await redis.zadd("z", { score, member });
+
+    expect(await redis.zremrangebyscore("z", 2, 5)).toBe(1);
+    expect(await redis.zrange("z", 0, -1)).toEqual(["a", "c"]);
+    expect(await redis.zremrangebyscore("z", "-inf", 9)).toBe(1);
+    expect(await redis.zrange("z", 0, -1)).toEqual(["c"]);
+    expect(await redis.zremrangebyscore("z", "-inf", "+inf")).toBe(1);
+    expect(await redis.zcard("z")).toBe(0);
+    expect(await redis.zremrangebyscore("missing", "-inf", 0)).toBe(0);
   });
 });
 

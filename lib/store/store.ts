@@ -22,6 +22,8 @@ import type {
 import type { RedisLike } from "./redis-like";
 
 const CALLS_TTL_S = 2 * 24 * 60 * 60;
+/** Most expired activity index members dropped per write. */
+const TRIM_BATCH = 100;
 
 export interface Store {
   getAccount(id: string): Promise<Account | null>;
@@ -139,6 +141,26 @@ export function createStore(redis: RedisLike, key: Buffer): Store {
     const members = await redis.smembers(setKey);
     const records = await mgetJson<T>(members.map(recordKey));
     return records.filter((r): r is T => r !== null);
+  }
+
+  /**
+   * Drops activity index members older than the window whose records have
+   * expired. The score is the post's publish time, and an entry can be
+   * written long after that (a test send of an old post, a catch-up sync),
+   * so the score alone can't say a record is gone: dropping a live one would
+   * hide it from the dashboard and from deleteAccountData.
+   */
+  async function trimActivityIndex(id: string): Promise<void> {
+    const old = await redis.zrange(
+      k.acts(id),
+      "-inf",
+      Date.now() - ACTIVITY_TTL_S * 1000,
+      { byScore: true, offset: 0, count: TRIM_BATCH },
+    );
+    if (old.length === 0) return;
+    const records = await redis.mget(...old.map((g) => k.act(id, g)));
+    const gone = old.filter((_, i) => records[i] === null);
+    if (gone.length > 0) await redis.zrem(k.acts(id), ...gone);
   }
 
   function sealDestination(d: Destination): Destination {
@@ -302,6 +324,11 @@ export function createStore(redis: RedisLike, key: Buffer): Store {
         score: entry.publishedAt,
         member: entry.groupKey,
       });
+      await trimActivityIndex(id);
+      // Each record expires a window after its own last write. This is the
+      // latest write, so the index lasts as long as any record it lists, and
+      // goes a window after writes stop.
+      await redis.expire(k.acts(id), ACTIVITY_TTL_S);
     },
     getActivity: (id, groupKey) => getJson<ActivityEntry>(k.act(id, groupKey)),
     listActivity: (id, limit) =>
@@ -313,6 +340,14 @@ export function createStore(redis: RedisLike, key: Buffer): Store {
         score: d.createdAt,
         member: d.token,
       });
+      // A draft is written once, when it's made, so its score is its write
+      // time and the index can drop members by score alone.
+      await redis.zremrangebyscore(
+        k.drafts(d.accountId),
+        "-inf",
+        Date.now() - DRAFT_TTL_S * 1000,
+      );
+      await redis.expire(k.drafts(d.accountId), DRAFT_TTL_S);
     },
     getDraft: (token) => getJson<RedditDraft>(k.draft(token)),
     listDrafts: (id, limit) =>

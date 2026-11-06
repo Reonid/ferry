@@ -152,5 +152,20 @@ export function createFakeRedis(): RedisLike {
       purge(key);
       return zsets.get(key)?.size ?? 0;
     },
+    async zremrangebyscore(key, min, max) {
+      purge(key);
+      const zset = zsets.get(key);
+      if (!zset) return 0;
+      const lo = bound(min, -Infinity);
+      const hi = bound(max, Infinity);
+      let removed = 0;
+      for (const [member, score] of zset)
+        if (score >= lo && score <= hi) {
+          zset.delete(member);
+          removed++;
+        }
+      if (zset.size === 0) remove(key);
+      return removed;
+    },
   };
 }
