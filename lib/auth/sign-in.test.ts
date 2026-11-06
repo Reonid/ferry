@@ -52,6 +52,20 @@ describe("saveSignIn", () => {
     expect(await store.getChannels("acct")).toEqual([channel]);
   });
 
+  it("makes the account due for a check at once", async () => {
+    // A stale schedule, like the 6-hour wait after Buffer disconnected Ferry.
+    const store = createStore(createFakeRedis(), randomBytes(32));
+    const later = NOW + 6 * 3_600_000;
+    await store.scheduleSync("acct", later);
+    await store.putSyncState("acct", {
+      ...(await store.getSyncState("acct")),
+      nextRunAt: later,
+    });
+    await saveSignIn(store, { info, tokens, channels: [], now: NOW });
+    expect(await store.dueAccounts(NOW, 10)).toEqual(["acct"]);
+    expect((await store.getSyncState("acct")).nextRunAt).toBe(NOW);
+  });
+
   it("clears the Buffer sign-in alert", async () => {
     const store = createStore(createFakeRedis(), randomBytes(32));
     for (const key of ["buffer-auth", "chan-paused:ch"])

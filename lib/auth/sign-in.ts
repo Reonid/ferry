@@ -1,4 +1,5 @@
 import { DiscordOAuthError } from "@/lib/destinations/discord/oauth";
+import { syncNow } from "@/lib/routes/manage";
 import type { Store } from "@/lib/store/store";
 import type { Channel, TokenSet } from "@/lib/types";
 import { OAuthError } from "./buffer-oauth";
@@ -19,7 +20,8 @@ export function logSignInFailure(what: string, err: unknown): void {
 
 /**
  * Records a finished Buffer sign-in: the account, its tokens and its
- * channels. Signing in again resolves the "sign in again" alert.
+ * channels. Signing in again resolves the "sign in again" alert, and
+ * Ferry checks Buffer at once rather than on the old schedule.
  */
 export async function saveSignIn(
   store: Store,
@@ -49,4 +51,5 @@ export async function saveSignIn(
   await store.putTokens(info.accountId, args.tokens);
   await store.putChannels(info.accountId, args.channels);
   await store.clearAlertKey(info.accountId, "buffer-auth");
+  await syncNow(store, info.accountId, now);
 }

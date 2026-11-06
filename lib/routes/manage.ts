@@ -60,7 +60,7 @@ export function validateRouteInput(args: {
 }
 
 /** Makes the account due for a check now, keeping nextRunAt in step. */
-async function syncNow(
+export async function syncNow(
   store: Store,
   accountId: string,
   now: number,
