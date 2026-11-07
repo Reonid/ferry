@@ -101,10 +101,13 @@ export default function Dashboard({
   snapshot,
   renderedAt,
   notice,
+  telegramEnabled,
 }: {
   snapshot: DashboardSnapshot;
   renderedAt: number;
   notice: Notice | null;
+  /** Static config, so it stays out of the snapshot /api/live returns. */
+  telegramEnabled: boolean;
 }) {
   const [polled, setPolled] = useState<Polled | null>(null);
   const base = useRef(snapshot);
@@ -172,6 +175,7 @@ export default function Dashboard({
               <Destinations
                 destinations={live.destinations}
                 routes={live.routes}
+                telegramEnabled={telegramEnabled}
               />
             </div>
             <div className={styles.column}>
@@ -191,6 +195,7 @@ export default function Dashboard({
             accountName={live.account.name}
             destinations={live.destinations}
             notifyDestinationId={live.notifyDestinationId}
+            telegramEnabled={telegramEnabled}
           />
         </div>
       </main>

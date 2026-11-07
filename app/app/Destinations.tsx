@@ -18,7 +18,27 @@ import {
   useFormAction,
   useSectionStatus,
 } from "./FormParts";
+import TelegramConnect from "./TelegramConnect";
 import styles from "./Destinations.module.css";
+
+const TELEGRAM_KIND: Record<
+  NonNullable<PublicDestination["chatType"]>,
+  string
+> = {
+  channel: "Telegram channel",
+  group: "Telegram group",
+  supergroup: "Telegram group",
+  private: "Telegram DM",
+};
+
+/** The line under a destination's name. */
+function kindLabel(destination: PublicDestination): string {
+  if (destination.kind === "discord") return "Discord channel";
+  if (destination.kind === "reddit") return "Reddit drafts";
+  return destination.chatType
+    ? TELEGRAM_KIND[destination.chatType]
+    : "Telegram chat";
+}
 
 async function rename(
   prev: ActionResult | null,
@@ -53,16 +73,20 @@ function DestinationRow({
         <p id={nameId} className={styles.name}>
           {destination.label}
         </p>
-        <p className={styles.kind}>
-          {destination.kind === "discord" ? "Discord channel" : "Reddit drafts"}
-        </p>
-        {broken && (
-          <p className={styles.broken}>
-            Discord stopped accepting posts here.{" "}
-            <a href="/api/discord/connect">Connect the channel again</a>, then
-            remove this one.
-          </p>
-        )}
+        <p className={styles.kind}>{kindLabel(destination)}</p>
+        {broken &&
+          (destination.kind === "telegram" ? (
+            <p className={styles.broken}>
+              Telegram stopped accepting posts here. Add Ferry to the chat
+              again, then remove this one.
+            </p>
+          ) : (
+            <p className={styles.broken}>
+              Discord stopped accepting posts here.{" "}
+              <a href="/api/discord/connect">Connect the channel again</a>, then
+              remove this one.
+            </p>
+          ))}
       </div>
       <div className={styles.tools}>
         <details className={styles.tool}>
@@ -127,9 +151,11 @@ function DestinationRow({
 export default function Destinations({
   destinations,
   routes,
+  telegramEnabled,
 }: {
   destinations: PublicDestination[];
   routes: Route[];
+  telegramEnabled: boolean;
 }) {
   const adding = useFormAction(addRedditAction, { resetOnSuccess: true });
   const { heading, message, report } = useSectionStatus();
@@ -168,6 +194,11 @@ export default function Destinations({
             Connect a Discord channel
           </a>
         </div>
+        {telegramEnabled && (
+          // The new chat's row arrives with the refresh, and focus waits on
+          // the heading above it.
+          <TelegramConnect purpose="chat" onConnected={() => report(null)} />
+        )}
         <form onSubmit={adding.onSubmit} className={ui.field}>
           <label htmlFor={subredditId} className={ui.label}>
             Add a subreddit

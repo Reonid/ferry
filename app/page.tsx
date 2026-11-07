@@ -11,8 +11,8 @@ const STEPS = [
     text: "Use your Buffer account. Ferry asks only for read access.",
   },
   {
-    name: "Connect Discord",
-    text: "Pick a server and a channel on Discord's own screen. Ferry can post there and nowhere else.",
+    name: "Connect Discord or Telegram",
+    text: "Pick a channel on Discord's own screen, or add Ferry to a Telegram channel or group. Ferry can post there and nowhere else.",
   },
   {
     name: "Draw a route",
@@ -44,8 +44,8 @@ export default async function Home(props: PageProps<"/">) {
           </h1>
           <p className={styles.lede}>
             Keep writing in Buffer. When Buffer publishes a post, Ferry sends it
-            on to your Discord channel and prepares a Reddit draft you post with
-            one tap.
+            on to your Discord or Telegram channel and prepares a Reddit draft
+            you post with one tap.
           </p>
           <div className={styles.start}>
             {account ? (
@@ -98,7 +98,7 @@ export default async function Home(props: PageProps<"/">) {
           <a href="https://suggestions.buffer.com">
             Buffer&apos;s suggestion board
           </a>
-          . Ferry starts with Discord and Reddit.
+          . Ferry starts with Discord, Telegram and Reddit.
         </p>
       </main>
     </>

@@ -82,14 +82,14 @@ async function changesDuringNextPoll(
   );
 }
 
-test("shows the seeded route in the map and the list", async ({ page }) => {
+test("shows the seeded routes in the map and the list", async ({ page }) => {
   await openDashboard(page);
 
   const map = page.getByRole("img", { name: /^Crossing map/ });
   await expect(map).toHaveAccessibleName(
-    "Crossing map with 1 route: Bluesky, LinkedIn to #announcements.",
+    "Crossing map with 2 routes: Bluesky, LinkedIn to #announcements; Bluesky to Ferry Updates.",
   );
-  await expect(map.locator("[data-lane]")).toHaveCount(2);
+  await expect(map.locator("[data-lane]")).toHaveCount(3);
 
   const routes = page.getByRole("region", { name: "Routes" });
   const route = routes
@@ -99,9 +99,12 @@ test("shows the seeded route in the map and the list", async ({ page }) => {
   for (const name of ["Pause", "Send my latest post", "Delete"]) {
     await expect(route.getByRole("button", { name })).toBeVisible();
   }
+  await expect(
+    routes.getByRole("listitem").filter({ hasText: "Bluesky → Ferry Updates" }),
+  ).toBeVisible();
   await expect(routes.getByText(TIMING_NOTE, { exact: true })).toBeVisible();
   await expect(
-    page.getByText(/^1 route running · Next check .+ · \d+ API calls? today$/),
+    page.getByText(/^2 routes running · Next check .+ · \d+ API calls? today$/),
   ).toBeVisible();
 });
 
@@ -151,12 +154,17 @@ test("reaches every control by keyboard", async ({ page }) => {
     page,
     page.getByRole("link", { name: "Connect a Discord channel" }),
   );
+  await tabTo(page, page.getByRole("button", { name: "Connect Telegram" }));
 
   const activity = page.getByRole("region", { name: "Activity" });
   await tabTo(page, activity.getByRole("button", { name: "Retry" }));
 
   const settings = page.getByRole("region", { name: "Settings" });
   await tabTo(page, settings.getByRole("combobox", { name: /alerts/i }));
+  await tabTo(
+    page,
+    settings.getByRole("button", { name: "Get alerts in a Telegram DM" }),
+  );
   await tabTo(page, settings.getByRole("button", { name: "Refresh channels" }));
   await tabTo(page, settings.getByRole("button", { name: "Sign out" }));
   await tabTo(page, settings.getByText("Delete my data", { exact: true }));

@@ -57,8 +57,9 @@ const KEPT: Item[] = [
       <>
         For Discord: the name you give it, the server and channel IDs, and the
         webhook Ferry posts through. The webhook token is encrypted with {AES}{" "}
-        and never sent to your browser. For Reddit: the subreddit&apos;s name.
-        Removing a destination deletes it.
+        and never sent to your browser. For Telegram: the chat&apos;s ID, title
+        and username, or for a DM only the chat ID. For Reddit: the
+        subreddit&apos;s name. Removing a destination deletes it.
       </>
     ),
   },
@@ -85,19 +86,25 @@ const EXPIRING: Item[] = [
     name: "Activity",
     time: "30 days",
     detail:
-      "For each post Ferry sends: up to its first 80 characters, the channel it came from, when Buffer published it, and how each delivery went, with a link to the Discord message or the Reddit draft.",
+      "For each post Ferry sends: up to its first 80 characters, the channel it came from, when Buffer published it, and how each delivery went, with a link to the Discord or Telegram message, or to the Reddit draft.",
   },
   {
     name: "Reddit drafts",
     time: "7 days",
     detail:
-      "Each draft's title, body text and link, and the addresses and alt text of its images. A draft's page opens from its own unguessable link without signing in, so it works from Discord on your phone, and anyone you give that link can read it.",
+      "Each draft's title, body text and link, and the addresses and alt text of its images. A draft's page opens from its own unguessable link without signing in, so it works from Discord or Telegram on your phone, and anyone you give that link can read it.",
   },
   {
     name: "Posts waiting to retry",
     time: "up to one day",
     detail:
       "A full copy of a post while Ferry delivers it: its text, image links and source channel. If a delivery keeps failing, the copy stays up to one day after the last try, so you can retry it.",
+  },
+  {
+    name: "Telegram link codes",
+    time: "15 minutes",
+    detail:
+      "Each one-time code that connects a Telegram chat, with your account ID. A code works for 15 minutes. Once a chat uses it, Ferry keeps it 15 minutes from then, with the chat it connected.",
   },
   {
     name: "Sent-alert markers",
@@ -198,7 +205,8 @@ export default function PrivacyPage() {
             </h3>
             <Items items={EXPIRING} />
             <p className={styles.aside}>
-              Ferry also keeps Buffer&apos;s latest rate-limit numbers, which
+              Ferry also keeps Buffer&apos;s latest rate-limit numbers and how
+              far it has read Telegram&apos;s updates for its bot, which
               aren&apos;t about anyone in particular.
             </p>
           </section>
@@ -232,6 +240,14 @@ export default function PrivacyPage() {
                 the channel you picked. Ferry keeps no Discord sign-in and
                 can&apos;t read your server.
               </li>
+              <li>
+                <strong>Telegram</strong> receives what you route there through
+                its Bot API: your posts, Reddit draft notices and alerts, in the
+                chats you connect. In groups, Ferry&apos;s bot sees only
+                commands sent to it. In a channel, it reads posts only to find a
+                link code, and never stores them. Telegram has no alt text, so
+                images arrive there without their descriptions.
+              </li>
             </ul>
             <p>
               Ferry never posts to Reddit. Opening a draft&apos;s Reddit link
@@ -260,7 +276,8 @@ export default function PrivacyPage() {
               Removing a Discord destination, or deleting your data, deletes
               Ferry&apos;s copy of its webhook. The webhook itself stays in your
               server until you delete it in Discord, under the channel&apos;s
-              Integrations settings.
+              Integrations settings. Ferry&apos;s bot stays in a Telegram chat
+              until you remove it there.
             </p>
           </section>
 
@@ -274,7 +291,7 @@ export default function PrivacyPage() {
               </a>
               . Issues are public, so leave out anything private.
             </p>
-            <p className={styles.updated}>Last updated November 6, 2026.</p>
+            <p className={styles.updated}>Last updated November 7, 2026.</p>
           </section>
         </div>
       </main>

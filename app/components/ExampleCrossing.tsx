@@ -11,8 +11,8 @@ import CrossingMap from "../app/CrossingMap";
 
 /*
  * The landing's illustration: the dashboard's own crossing map, drawn from
- * made-up placeholders ("Your LinkedIn", "r/yoursubreddit") so it can't be
- * read as anyone's real data.
+ * made-up placeholders ("Your LinkedIn", "@yourchannel", "r/yoursubreddit")
+ * so it can't be read as anyone's real data.
  */
 
 function channel(id: string, service: Channel["service"], name: string) {
@@ -47,7 +47,16 @@ const CHANNELS: Channel[] = [
   channel("example-bluesky", "bluesky", "Your Bluesky"),
 ];
 
+// Telegram heads the far shore so LinkedIn's two lanes fan out above
+// Bluesky's instead of crossing them.
 const DESTINATIONS: PublicDestination[] = [
+  {
+    id: "example-telegram",
+    kind: "telegram",
+    label: "@yourchannel",
+    status: "active",
+    chatType: "channel",
+  },
   {
     id: "example-discord",
     kind: "discord",
@@ -63,14 +72,16 @@ const DESTINATIONS: PublicDestination[] = [
 ];
 
 // In this order the lanes bow apart instead of crossing: the map bows its
-// first lane up, the second down, the third up again.
+// first lane up, the second down, and so on. Lanes that share a port bow
+// away from each other, or the same way.
 const ROUTES: Route[] = [
-  route("example-linkedin-discord", ["example-linkedin"], "example-discord"),
+  route("example-linkedin-telegram", ["example-linkedin"], "example-telegram"),
   route("example-bluesky-reddit", ["example-bluesky"], "example-reddit"),
+  route("example-linkedin-discord", ["example-linkedin"], "example-discord"),
   route("example-bluesky-discord", ["example-bluesky"], "example-discord"),
 ];
 
-/** Two posts land: one from LinkedIn, and one from Bluesky that goes to both. */
+/** Two posts land, each in two places. */
 const ARRIVALS: ActivityEntry[] = [
   {
     groupKey: "example-linkedin-post",
@@ -79,6 +90,7 @@ const ARRIVALS: ActivityEntry[] = [
     publishedAt: 0,
     deliveries: [
       { destinationId: "example-discord", status: "delivered", at: 0 },
+      { destinationId: "example-telegram", status: "delivered", at: 0 },
     ],
   },
   {
@@ -96,7 +108,7 @@ const ARRIVALS: ActivityEntry[] = [
 const NOTHING_YET: ActivityEntry[] = [];
 
 const LABEL =
-  "Example crossing map: posts from LinkedIn and Bluesky cross to #announcements on Discord, and Bluesky posts also become drafts for r/yoursubreddit.";
+  "Example crossing map: posts from LinkedIn and Bluesky cross to #announcements on Discord, LinkedIn posts also cross to @yourchannel on Telegram, and Bluesky posts also become drafts for r/yoursubreddit.";
 
 /** A beat after the map comes into view, so the eye is there first. */
 const SETTLE_MS = 500;

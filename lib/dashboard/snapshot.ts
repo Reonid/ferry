@@ -56,12 +56,14 @@ export async function loadDashboard(
   return {
     account: { name: account.name, status: account.status },
     channels,
-    // Built field by field so webhook tokens can never leak through.
+    // Built field by field so webhook tokens can never leak through. A
+    // Telegram chat's type names its kind and keeps DMs out of routes.
     destinations: destinations.map((d) => ({
       id: d.id,
       kind: d.kind,
       label: d.label,
       status: d.status,
+      ...(d.kind === "telegram" ? { chatType: d.chatType } : {}),
     })),
     routes,
     activity,

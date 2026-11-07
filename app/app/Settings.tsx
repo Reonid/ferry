@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { useId, useRef } from "react";
 import type { ActionResult } from "@/lib/routes/manage";
 import type { PublicDestination } from "@/lib/types";
 import ui from "../components/ui.module.css";
@@ -10,6 +10,7 @@ import {
   setNotifyAction,
 } from "./actions";
 import { cx, FormStatus, SubmitButton, useFormAction } from "./FormParts";
+import TelegramConnect from "./TelegramConnect";
 import styles from "./Settings.module.css";
 
 async function saveNotify(
@@ -24,53 +25,76 @@ export default function Settings({
   accountName,
   destinations,
   notifyDestinationId,
+  telegramEnabled,
 }: {
   accountName: string | null;
   destinations: PublicDestination[];
   notifyDestinationId: string | null;
+  telegramEnabled: boolean;
 }) {
   const notify = useFormAction(saveNotify);
   const refresh = useFormAction(refreshChannelsAction);
+  const heading = useRef<HTMLHeadingElement>(null);
   const selectId = useId();
   const hintId = useId();
-  const discord = destinations.filter((d) => d.kind === "discord");
+  const targets = destinations.filter(
+    (d) => d.kind === "discord" || d.kind === "telegram",
+  );
   return (
     <section
       id="settings"
       aria-labelledby="settings-title"
       className={ui.section}
     >
-      <h2 id="settings-title" className={ui.heading}>
+      <h2
+        id="settings-title"
+        ref={heading}
+        tabIndex={-1}
+        className={ui.heading}
+      >
         Settings
       </h2>
       <div className={styles.grid}>
-        <form onSubmit={notify.onSubmit} className={styles.group}>
-          <label htmlFor={selectId} className={ui.label}>
-            Send alerts and draft notices to
-          </label>
-          <select
-            id={selectId}
-            name="destinationId"
-            className={ui.input}
-            defaultValue={notifyDestinationId ?? ""}
-            aria-describedby={hintId}
-          >
-            <option value="">Only this page</option>
-            {discord.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.label}
-              </option>
-            ))}
-          </select>
-          <p id={hintId} className={ui.hint}>
-            A private Discord channel works best. Ferry posts there when a
-            delivery needs you or a Reddit draft is ready.
-          </p>
-          <div>
-            <SubmitButton busy={notify.pending}>Save</SubmitButton>
-          </div>
-          <FormStatus result={notify.result} />
-        </form>
+        <div className={styles.group}>
+          <form onSubmit={notify.onSubmit} className={styles.group}>
+            <label htmlFor={selectId} className={ui.label}>
+              Send alerts and draft notices to
+            </label>
+            <select
+              // Linking a DM makes it the target on the server: show that.
+              key={notifyDestinationId ?? ""}
+              id={selectId}
+              name="destinationId"
+              className={ui.input}
+              defaultValue={notifyDestinationId ?? ""}
+              aria-describedby={hintId}
+            >
+              <option value="">Only this page</option>
+              {targets.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.label}
+                </option>
+              ))}
+            </select>
+            <p id={hintId} className={ui.hint}>
+              {telegramEnabled
+                ? "A private Discord channel or a Telegram DM works best."
+                : "A private Discord channel works best."}{" "}
+              Ferry posts there when a delivery needs you or a Reddit draft is
+              ready.
+            </p>
+            <div>
+              <SubmitButton busy={notify.pending}>Save</SubmitButton>
+            </div>
+            <FormStatus result={notify.result} />
+          </form>
+          {telegramEnabled && (
+            <TelegramConnect
+              purpose="dm"
+              onConnected={() => heading.current?.focus()}
+            />
+          )}
+        </div>
 
         <div className={styles.group}>
           <h3 className={ui.label}>Buffer channels</h3>

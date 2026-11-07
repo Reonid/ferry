@@ -197,12 +197,13 @@ export function layoutChart(
   const right: Port[] = rows(destinations.length, height, padding).map(
     (y, i) => {
       const d = destinations[i]!;
+      const network = d.kind === "telegram" ? "Telegram" : "Discord";
       const detail =
         d.kind === "reddit"
           ? "Reddit drafts"
           : d.status === "broken"
-            ? "Reconnect Discord"
-            : "Discord";
+            ? `Reconnect ${network}`
+            : network;
       return {
         id: d.id,
         x: round(rightCoast(y) - PORT_GAP),

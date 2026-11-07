@@ -54,7 +54,7 @@ test("landing shows the pitch and the read-only promise", async ({ page }) => {
   await expect(steps).toHaveCount(3);
   for (const [i, name] of [
     "Sign in",
-    "Connect Discord",
+    "Connect Discord or Telegram",
     "Draw a route",
   ].entries())
     await expect(steps.nth(i).getByRole("heading", { level: 3 })).toHaveText(
@@ -101,7 +101,7 @@ test("the landing map sails once, and stays still under reduced motion", async (
   await page.goto("/");
   const map = page.getByRole("img", { name: /^Example crossing map/ });
   await map.scrollIntoViewIfNeeded();
-  await expect(map.locator("[data-lane]")).toHaveCount(3);
+  await expect(map.locator("[data-lane]")).toHaveCount(4);
   await expect(map.locator("[data-boat]").first()).toBeVisible({
     timeout: 10_000,
   });
@@ -116,7 +116,7 @@ test("the landing map sails once, and stays still under reduced motion", async (
   await page.waitForLoadState("networkidle");
   await page.waitForTimeout(2000);
   await expect(page.locator("[data-boat], [data-lit]")).toHaveCount(0);
-  await expect(map.locator("[data-lane]")).toHaveCount(3);
+  await expect(map.locator("[data-lane]")).toHaveCount(4);
 });
 
 test("the landing has a share image", async ({ page, request }) => {
@@ -146,6 +146,7 @@ test("privacy lists stored data", async ({ page }) => {
     "Activity, 30 days",
     "Reddit drafts, 7 days",
     "Posts waiting to retry, up to one day",
+    "Telegram link codes, 15 minutes",
     "API-call counters, 2 days",
   ])
     await expect(stored.getByText(item, { exact: true })).toBeVisible();
@@ -163,8 +164,16 @@ test("privacy lists stored data", async ({ page }) => {
   const others = page.getByRole("region", {
     name: "Who else handles your data",
   });
-  for (const processor of ["Vercel", "Upstash", "Redis", "QStash", "Discord"])
+  for (const processor of [
+    "Vercel",
+    "Upstash",
+    "Redis",
+    "QStash",
+    "Discord",
+    "Telegram",
+  ])
     await expect(others).toContainText(processor);
+  await expect(others).toContainText("Telegram has no alt text");
   await expect(others).toContainText(
     "Ferry never posts to Reddit. Opening a draft's Reddit link sends its title and text to Reddit's submit page, and nothing is posted until you press Post there.",
   );

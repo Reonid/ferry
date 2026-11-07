@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { channelName, routeLabel } from "@/lib/dashboard/view";
+import { channelName, routable, routeLabel } from "@/lib/dashboard/view";
 import { serviceLabel } from "@/lib/mirror/services";
 import type { ActionResult } from "@/lib/routes/manage";
 import type { Channel, PublicDestination, Route } from "@/lib/types";
@@ -24,6 +24,13 @@ import styles from "./RouteList.module.css";
 
 export const TIMING_NOTE =
   "Ferry checks Buffer about once a minute while this page is open, and every 15 minutes to 2 hours otherwise. Posts it already knows about cross within about 3 minutes of going out.";
+
+/** What a route there makes, after the destination's name in the picker. */
+const KIND_NAME: Record<PublicDestination["kind"], string> = {
+  discord: "Discord",
+  reddit: "Reddit draft",
+  telegram: "Telegram",
+};
 
 const COPY_TIP =
   "If you write different text for each network, each version arrives separately. Pick one of those channels to get one message per post. The same text posted again within 24 hours counts as a copy and arrives once.";
@@ -174,7 +181,7 @@ function CreateRoute({
                   value={d.id}
                   disabled={d.status !== "active"}
                 >
-                  {d.label} ({d.kind === "discord" ? "Discord" : "Reddit draft"}
+                  {d.label} ({KIND_NAME[d.kind]}
                   {d.status !== "active" ? ", reconnect first" : ""})
                 </option>
               ))}
@@ -221,13 +228,15 @@ export default function RouteList({
   // Open the form when there's nothing yet; after that, people choose.
   const [startOpen] = useState(routes.length === 0);
   const { heading, message, report } = useSectionStatus();
+  // A Telegram DM takes alerts only, so no route can go there.
+  const targets = destinations.filter(routable);
   return (
     <section id="routes" aria-labelledby="routes-title" className={ui.section}>
       <h2 id="routes-title" ref={heading} tabIndex={-1} className={ui.heading}>
         Routes
       </h2>
       <SectionStatus message={message} />
-      {destinations.length === 0 ? (
+      {targets.length === 0 ? (
         <div className={styles.empty}>
           <p>
             A route carries posts from your Buffer channels to a destination.
@@ -253,7 +262,7 @@ export default function RouteList({
           )}
           <CreateRoute
             channels={channels}
-            destinations={destinations}
+            destinations={targets}
             startOpen={startOpen}
           />
         </>

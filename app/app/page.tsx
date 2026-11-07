@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { requireAccount } from "@/lib/auth/current";
 import { loadDashboard } from "@/lib/dashboard/snapshot";
+import { telegramConfig } from "@/lib/env";
 import { getStore } from "@/lib/store";
 import type { Notice } from "./Alerts";
 import Dashboard from "./Dashboard";
@@ -31,6 +32,8 @@ export default async function DashboardPage(props: PageProps<"/app">) {
       snapshot={snapshot}
       renderedAt={renderedAt}
       notice={noticeFrom(await props.searchParams)}
+      // Only whether it's set up: the token and username stay here.
+      telegramEnabled={telegramConfig() !== null}
     />
   );
 }

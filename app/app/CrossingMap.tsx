@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, type Ref } from "react";
 import { layoutChart, NARROW, WIDE, type Chart } from "@/lib/dashboard/chart";
-import { mapLabel, newLandings } from "@/lib/dashboard/view";
+import { mapLabel, newLandings, routable } from "@/lib/dashboard/view";
 import type {
   ActivityEntry,
   Channel,
@@ -173,13 +173,15 @@ export default function CrossingMap({
   /** Replaces the label read from the routes, as the landing's example does. */
   label?: string;
 }) {
+  // A Telegram DM takes alerts only, so it gets no port on the far shore.
+  const ports = useMemo(() => destinations.filter(routable), [destinations]);
   const wide = useMemo(
-    () => layoutChart({ channels, destinations, routes }, WIDE),
-    [channels, destinations, routes],
+    () => layoutChart({ channels, destinations: ports, routes }, WIDE),
+    [channels, ports, routes],
   );
   const narrow = useMemo(
-    () => layoutChart({ channels, destinations, routes }, NARROW),
-    [channels, destinations, routes],
+    () => layoutChart({ channels, destinations: ports, routes }, NARROW),
+    [channels, ports, routes],
   );
   const label = givenLabel ?? mapLabel(routes, channels, destinations);
   const wideRef = useRef<SVGSVGElement>(null);
