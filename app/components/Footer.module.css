@@ -1,0 +1,27 @@
+.footer {
+  margin-top: auto;
+  border-top: 1px solid var(--rule);
+}
+
+.inner {
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: var(--space-5) var(--gutter) var(--space-6);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-6);
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.disclaimer {
+  max-width: var(--measure);
+}
+
+.links {
+  display: flex;
+  gap: var(--space-5);
+  list-style: none;
+}

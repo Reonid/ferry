@@ -1,0 +1,160 @@
+/* Shared controls: sections, buttons, fields and the line under a form. */
+
+/* A page's main column, under the header. */
+.page {
+  inline-size: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: var(--space-7) var(--gutter) var(--space-8);
+}
+
+/* A page's title: set like a name on the water, in the chart's italic. */
+.title {
+  font-family: var(--font-water);
+  font-style: italic;
+  font-weight: 500;
+  font-size: clamp(2rem, 1.55rem + 1.9vw, 2.75rem);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+.section {
+  display: grid;
+  align-content: start;
+  gap: var(--space-4);
+}
+
+.heading {
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 2.5rem;
+  padding: var(--space-2) var(--space-4);
+  border: 1.5px solid var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.button:hover {
+  border-color: var(--ink-muted);
+  background: var(--sea-shallow);
+  text-decoration: none;
+}
+
+.button[aria-disabled="true"] {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.primary {
+  border-color: var(--route-strong);
+  background: var(--route-strong);
+  color: var(--on-route);
+}
+
+.primary:hover {
+  border-color: var(--route);
+  background: var(--route);
+}
+
+.danger {
+  border-color: var(--alert);
+  color: var(--alert);
+}
+
+.danger:hover {
+  border-color: var(--alert);
+  background: var(--alert-wash);
+}
+
+/* A <summary> that reads as a button, with a chevron that turns open. */
+.disclosure {
+  list-style: none;
+}
+
+.disclosure::-webkit-details-marker {
+  display: none;
+}
+
+.disclosure::after {
+  content: "";
+  inline-size: 0.4em;
+  block-size: 0.4em;
+  margin-inline-start: 0.15em;
+  border: solid currentColor;
+  border-width: 0 2px 2px 0;
+  transform: translateY(-0.15em) rotate(45deg);
+  transition: transform 150ms ease;
+}
+
+details[open] > .disclosure::after {
+  transform: translateY(0.1em) rotate(-135deg);
+}
+
+/* A summary that adds something shows a plus, then a minus. */
+.adds::after {
+  display: none;
+}
+
+.adds::before {
+  content: "+";
+  inline-size: 0.75em;
+  font-weight: 700;
+}
+
+details[open] > .adds::before {
+  content: "−";
+}
+
+.field {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.label {
+  font-weight: 600;
+}
+
+.hint {
+  max-width: var(--measure);
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+.input {
+  inline-size: 100%;
+  min-height: 2.5rem;
+  padding: var(--space-2) var(--space-3);
+  border: 1.5px solid var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.input::placeholder {
+  color: var(--ink-muted);
+  opacity: 1;
+}
+
+/* A live result line. Never hidden when empty: a live region has to be in
+   the accessibility tree before its message arrives. */
+.status {
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.error {
+  color: var(--alert);
+}

@@ -1,0 +1,21 @@
+.mark {
+  inline-size: 2.75rem;
+  block-size: auto;
+  overflow: visible;
+  flex: none;
+}
+
+.hull {
+  fill: var(--ink);
+}
+
+.deck {
+  fill: var(--route);
+}
+
+.wake {
+  fill: none;
+  stroke: var(--route);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}

@@ -1,0 +1,180 @@
+/*
+ * Ferry's design tokens.
+ *
+ * The look is a nautical chart: sea-white paper, navy chart ink, buff land,
+ * and the magenta that charts use to draw ferry routes. Dark mode is the
+ * night chart, after the dimmed palettes ship bridges use after dark.
+ * Every text pairing below passes WCAG AA in both themes; --rule-strong
+ * keeps 3:1 for control borders.
+ *
+ * Type follows the chart convention: names on land are upright
+ * (--font-body), things on the water are italic (--font-water).
+ */
+:root {
+  color-scheme: light dark;
+
+  /* Water, from deep (the page) to shallow (near a coast). */
+  --sea: #f3f7f8;
+  --sea-shallow: #e3eef2;
+  --sea-shoal: #cfe2ea;
+  --surface: #ffffff;
+  /* Land on the chart. */
+  --land: #ebe2c6;
+  --coast: #8f7d52;
+  /* Chart ink. */
+  --ink: #15283f;
+  --ink-muted: #44586c;
+  --rule: #bacbd4;
+  --rule-strong: #6e8496;
+  /* Chart magenta: routes and the main action. */
+  --route: #a1197f;
+  --route-strong: #8c116d;
+  --on-route: #ffffff;
+  /* Delivery states. */
+  --ok: #1d6b47;
+  --wait: #8a5300;
+  --alert: #b3261e;
+  --alert-wash: #fbeae7;
+  --focus: #a1197f;
+
+  --font-body:
+    var(--font-atkinson), "Atkinson Hyperlegible Next", system-ui, sans-serif;
+  --font-water: var(--font-piazzolla), Georgia, "Times New Roman", serif;
+
+  /* Type scale: a major third on 16px. */
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5625rem;
+  --text-2xl: 1.953rem;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+
+  --page-max: 70rem;
+  --gutter: clamp(1rem, 4vw, 2rem);
+  --measure: 68ch;
+  --radius: 6px;
+  --ease-sail: cubic-bezier(0.45, 0, 0.55, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --sea: #0d1b2a;
+    --sea-shallow: #132639;
+    --sea-shoal: #1a3148;
+    --surface: #10202f;
+    --land: #2b2b24;
+    --coast: #8a7a55;
+    --ink: #dce6ee;
+    --ink-muted: #a3b5c4;
+    --rule: #2b4357;
+    --rule-strong: #6f889c;
+    --route: #ee8fd7;
+    --route-strong: #e58bd0;
+    --on-route: #2a0b22;
+    --ok: #79d7a8;
+    --wait: #f0c36a;
+    --alert: #ff9d92;
+    --alert-wash: #3a1d1e;
+    --focus: #ee8fd7;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--sea);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+p {
+  margin: 0;
+  text-wrap: pretty;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+}
+
+a {
+  color: var(--route);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+
+a:hover {
+  text-decoration-thickness: 2px;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+input[type="checkbox"] {
+  accent-color: var(--route);
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

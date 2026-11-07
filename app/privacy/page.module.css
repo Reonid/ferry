@@ -1,0 +1,90 @@
+/* A document column. Each entry reads "what, how long", with the time in
+   the chart's italic, as the dashboard sets timing. */
+.doc {
+  max-inline-size: 46rem;
+  display: grid;
+  gap: var(--space-7);
+}
+
+.intro {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.lede {
+  max-inline-size: 34em;
+  font-size: var(--text-lg);
+  line-height: 1.45;
+}
+
+.section {
+  display: grid;
+  align-content: start;
+  gap: var(--space-4);
+}
+
+.section > p,
+.list {
+  max-inline-size: var(--measure);
+}
+
+.group {
+  margin-block-start: var(--space-3);
+  font-size: var(--text-base);
+  font-weight: 700;
+  color: var(--ink-muted);
+}
+
+.items {
+  margin: 0;
+  border-block-start: 1px solid var(--rule);
+}
+
+.item {
+  display: grid;
+  gap: var(--space-1);
+  padding-block: var(--space-3);
+  border-block-end: 1px solid var(--rule);
+}
+
+.term {
+  font-weight: 700;
+}
+
+.time {
+  font-family: var(--font-water);
+  font-style: italic;
+  font-weight: 500;
+}
+
+.detail {
+  margin: 0;
+  max-inline-size: var(--measure);
+  color: var(--ink-muted);
+}
+
+.term code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.aside {
+  color: var(--ink-muted);
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+.list {
+  display: grid;
+  gap: var(--space-3);
+  padding-inline-start: 1.25em;
+}
+
+.updated {
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
