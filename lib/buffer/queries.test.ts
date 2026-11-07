@@ -8,6 +8,7 @@ import {
   buildSyncQuery,
   syncVariables,
 } from "./queries";
+import { ORG_LIMITS_QUERY } from "@/lib/dev/probe";
 
 const fixture = JSON.parse(
   readFileSync("test/fixtures/buffer-schema.json", "utf8"),
@@ -19,6 +20,7 @@ describe("query guard against Buffer's schema", () => {
     ["ACCOUNT_QUERY", ACCOUNT_QUERY],
     ["CHANNELS_QUERY", CHANNELS_QUERY],
     ["LATEST_SENT_QUERY", LATEST_SENT_QUERY],
+    ["ORG_LIMITS_QUERY", ORG_LIMITS_QUERY],
     ["buildSyncQuery(1)", buildSyncQuery(1)],
     ["buildSyncQuery(3)", buildSyncQuery(3)],
   ];

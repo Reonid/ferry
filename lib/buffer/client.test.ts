@@ -47,6 +47,22 @@ describe("bufferRequest", () => {
     });
   });
 
+  it("hands the response headers to onResponse", async () => {
+    const seen: (string | null)[] = [];
+    await bufferRequest({
+      accessToken: "tok",
+      query: "{ a }",
+      now: 1,
+      fetchImpl: (async () =>
+        json(
+          { data: { ok: 1 } },
+          { headers: { "ratelimit-policy": "p" } },
+        )) as typeof fetch,
+      onResponse: (h) => seen.push(h.get("ratelimit-policy")),
+    });
+    expect(seen).toEqual(["p"]);
+  });
+
   it("maps 401 to auth", async () => {
     const e = await failure(
       (async () => new Response("no", { status: 401 })) as typeof fetch,

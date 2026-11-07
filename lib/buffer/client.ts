@@ -54,6 +54,8 @@ export async function bufferRequest<T>(args: {
   now: number;
   fetchImpl?: typeof fetch;
   endpoint?: string;
+  /** Sees the raw response headers before the body is read (probe only). */
+  onResponse?: (headers: Headers) => void;
 }): Promise<{ data: T; rateLimit: RateLimitSnapshot | null }> {
   const { accessToken, query, variables, now } = args;
   const doFetch = args.fetchImpl ?? fetch;
@@ -77,6 +79,8 @@ export async function bufferRequest<T>(args: {
       kind: "network",
     });
   }
+
+  args.onResponse?.(response.headers);
 
   if (response.status === 429) {
     const retryAfterMs = parseRetryAfter(
