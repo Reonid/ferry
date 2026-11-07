@@ -42,7 +42,12 @@ export interface Store {
   getDestination(destId: string): Promise<Destination | null>;
   putDestination(d: Destination): Promise<void>;
   deleteDestination(id: string, destId: string): Promise<void>;
-  putTelegramLink(code: string, link: TelegramLink): Promise<void>;
+  /** Kept for `ttlSeconds`, the code's full life unless given. */
+  putTelegramLink(
+    code: string,
+    link: TelegramLink,
+    ttlSeconds?: number,
+  ): Promise<void>;
   getTelegramLink(code: string): Promise<TelegramLink | null>;
   getTelegramOffset(): Promise<number>;
   putTelegramOffset(n: number): Promise<void>;
@@ -229,8 +234,8 @@ export function createStore(redis: RedisLike, key: Buffer): Store {
       await setJson(k.dest(d.id), sealDestination(d));
       await redis.sadd(k.dests(d.accountId), d.id);
     },
-    putTelegramLink: (code, link) =>
-      setJson(k.tgLink(code), link, { ex: TELEGRAM_LINK_TTL_S }),
+    putTelegramLink: (code, link, ttlSeconds = TELEGRAM_LINK_TTL_S) =>
+      setJson(k.tgLink(code), link, { ex: ttlSeconds }),
     getTelegramLink: (code) => getJson<TelegramLink>(k.tgLink(code)),
     async getTelegramOffset() {
       return (await getJson<number>(k.tgOffset())) ?? 0;
@@ -425,9 +430,10 @@ export function createStore(redis: RedisLike, key: Buffer): Store {
       if (ownJobIds.length > 0) await redis.zrem(k.retryDue, ...ownJobIds);
       await redis.zrem(k.syncDue, id);
 
-      // Alert dedupe keys (ferry:alertkey:*) and daily call counters
-      // (ferry:calls:*) are left to expire on their own TTLs: they hold only
-      // IDs and counts, and cannot be enumerated without a key scan.
+      // Alert dedupe keys (ferry:alertkey:*), daily call counters
+      // (ferry:calls:*) and Telegram link codes (ferry:tglink:*) are left to
+      // expire on their own TTLs: they hold only IDs and counts, and cannot
+      // be enumerated without a key scan.
       await del(
         k.account(id),
         k.tokens(id),

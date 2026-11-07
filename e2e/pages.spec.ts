@@ -146,7 +146,7 @@ test("privacy lists stored data", async ({ page }) => {
     "Activity, 30 days",
     "Reddit drafts, 7 days",
     "Posts waiting to retry, up to one day",
-    "Telegram link codes, 15 minutes",
+    "Telegram link codes, up to 15 minutes",
     "API-call counters, 2 days",
   ])
     await expect(stored.getByText(item, { exact: true })).toBeVisible();
@@ -184,6 +184,9 @@ test("privacy lists stored data", async ({ page }) => {
   });
   await expect(leaving).toContainText(
     "Signing out ends this browser's session, but syncing continues until you choose Delete my data.",
+  );
+  await expect(leaving).toContainText(
+    "A few records run out on their own instead, on the schedule above: delivery claims, Telegram link codes, sent-alert markers, API-call counters and sync locks.",
   );
   await expect(
     page.getByRole("link", { name: "Open an issue on GitHub" }),

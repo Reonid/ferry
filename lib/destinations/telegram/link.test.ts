@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { TELEGRAM_LINK_TTL_S } from "../../constants";
 import { account } from "../../delivery/test-support";
 import type { TelegramDestination } from "../../types";
 import { makeSyncDeps } from "../../sync/test-support";
@@ -198,6 +199,37 @@ describe("processTelegramUpdates", () => {
     const dests = await store.listDestinations("acct");
     expect(dests).toHaveLength(1);
     expect(dests[0]).toMatchObject({ chatId: "-1001" });
+  });
+
+  it("keeps a used code only until 15 minutes after it was made", async () => {
+    // The store's expiry reads Date.now(), so the test sets that clock.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(NOW);
+      const store = await setup();
+      const { code } = await startTelegramLink({
+        store,
+        accountId: "acct",
+        purpose: "chat",
+        now: NOW,
+        botUsername: "b",
+      });
+      const used = NOW + 10 * 60_000;
+      vi.setSystemTime(used);
+      await processTelegramUpdates({
+        store,
+        token,
+        now: used,
+        fetchImpl: fakeTelegram([channelPost(1, code)]).fetchImpl,
+      });
+      expect((await store.getTelegramLink(code))?.destinationId).toBeTruthy();
+      vi.setSystemTime(NOW + TELEGRAM_LINK_TTL_S * 1000 - 1000);
+      expect(await store.getTelegramLink(code)).not.toBeNull();
+      vi.setSystemTime(NOW + TELEGRAM_LINK_TTL_S * 1000);
+      expect(await store.getTelegramLink(code)).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("relinking the same chat updates the destination in place", async () => {

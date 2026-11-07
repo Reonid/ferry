@@ -46,6 +46,41 @@ function statusIn(region: Locator): Locator {
   return region.locator('[aria-live="polite"][data-telegram-status]');
 }
 
+/**
+ * Resolves once a refresh of the dashboard from the server has fully
+ * arrived. Tests that connect wait for it, so no stream outlives the test.
+ */
+async function refreshFinished(page: Page): Promise<void> {
+  const response = await page.waitForResponse(
+    (r) =>
+      new URL(r.url()).pathname === "/app" &&
+      r.request().headers()["rsc"] === "1",
+  );
+  await response.finished();
+}
+
+/**
+ * Opens the dashboard on a fake clock, then stops time, so the panel's
+ * checks happen only when the test moves the clock on.
+ */
+async function openOnStoppedClock(page: Page): Promise<void> {
+  await page.clock.install();
+  await openDashboard(page);
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1_000));
+}
+
+/** Moves the stopped clock on, then counts the checks asked so far. */
+async function checksAfter(
+  page: Page,
+  asked: string[],
+  time: number | string,
+): Promise<number> {
+  await page.clock.fastForward(time);
+  // Give a check that just fired time to arrive, and its answer to land.
+  await page.waitForTimeout(300);
+  return asked.length;
+}
+
 test("connect panel shows a code and both links", async ({ page, context }) => {
   await answerChecks(page);
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
@@ -124,9 +159,7 @@ test("announces the connection politely and moves focus", async ({ page }) => {
   await expect(statusIn(destinations)).toHaveText("Waiting for the code…");
 
   // Connecting refreshes the dashboard from the server, as other actions do.
-  const refreshed = page.waitForRequest(
-    (r) => new URL(r.url()).pathname === "/app" && r.headers()["rsc"] === "1",
-  );
+  const refreshed = refreshFinished(page);
   await expect(statusIn(destinations)).toHaveText("Connected to Ferry Crew.", {
     timeout: 10_000,
   });
@@ -165,24 +198,103 @@ test("says when a code expired, and gets a new one", async ({ page }) => {
   expect(await field.inputValue()).not.toBe(first);
 });
 
-test("stops checking after 3 minutes", async ({ page }) => {
+test("slows to a check every 15 s after 3 minutes", async ({ page }) => {
   const asked = await answerChecks(page);
-  await page.clock.install();
-  await openDashboard(page);
+  await openOnStoppedClock(page);
+  const destinations = page.getByRole("region", { name: "Destinations" });
+  await destinations.getByRole("button", { name: "Connect Telegram" }).click();
+  await expect(
+    destinations.getByRole("textbox", { name: "Your code" }),
+  ).toHaveValue(CODE);
+
+  // Every 3 s at first.
+  expect(await checksAfter(page, asked, 2_900)).toBe(0);
+  expect(await checksAfter(page, asked, 200)).toBe(1);
+  expect(await checksAfter(page, asked, 2_900)).toBe(1);
+  expect(await checksAfter(page, asked, 200)).toBe(2);
+  // Three minutes in, every 15 s, and the panel stays open.
+  expect(await checksAfter(page, asked, "03:00")).toBe(3);
+  expect(await checksAfter(page, asked, 14_000)).toBe(3);
+  expect(await checksAfter(page, asked, 2_000)).toBe(4);
+  expect(await checksAfter(page, asked, 14_000)).toBe(4);
+  expect(await checksAfter(page, asked, 2_000)).toBe(5);
+  await expect(statusIn(destinations)).toHaveText("Waiting for the code…");
+});
+
+test("still connects from a check that came due while away", async ({
+  page,
+}) => {
+  await answerChecks(page, {
+    status: "connected",
+    destination: {
+      id: "e2e-telegram",
+      kind: "telegram",
+      label: "Ferry Crew",
+      status: "active",
+      chatType: "group",
+    },
+  });
+  await openOnStoppedClock(page);
+  const destinations = page.getByRole("region", { name: "Destinations" });
+  await destinations.getByRole("button", { name: "Connect Telegram" }).click();
+  await expect(
+    destinations.getByRole("textbox", { name: "Your code" }),
+  ).toHaveValue(CODE);
+
+  // A phone pauses timers while Telegram is open. Back five minutes later,
+  // the overdue check runs, and its answer counts.
+  const refreshed = refreshFinished(page);
+  await page.clock.fastForward("05:00");
+  await expect(statusIn(destinations)).toHaveText("Connected to Ferry Crew.");
+  await refreshed;
+});
+
+test("stops once the code is past its lifetime", async ({ page }) => {
+  const asked = await answerChecks(page);
+  await openOnStoppedClock(page);
   const destinations = page.getByRole("region", { name: "Destinations" });
   await destinations.getByRole("button", { name: "Connect Telegram" }).click();
   const field = destinations.getByRole("textbox", { name: "Your code" });
   await expect(field).toHaveValue(CODE);
 
-  await page.clock.fastForward("03:00");
+  // Back 16 minutes later: the overdue check still gets its answer, and by
+  // then the code is past its 15 minutes, so the panel lets it go.
+  expect(await checksAfter(page, asked, "16:01")).toBe(1);
   await expect(statusIn(destinations)).toHaveText(
-    "Ferry didn't see the code. Try again.",
+    "That code expired. Get a new one.",
   );
   await expect(field).toHaveCount(0);
-  const count = asked.length;
-  await page.clock.fastForward("00:10");
-  await page.waitForTimeout(500);
-  expect(asked.length).toBe(count);
+  expect(await checksAfter(page, asked, "01:00")).toBe(1);
+});
+
+test("tells how to fix a broken Telegram chat", async ({ page }) => {
+  // Every poll reports the seeded channel as broken.
+  await page.route("**/api/live", async (route) => {
+    const response = await route.fetch();
+    const snapshot = (await response.json()) as {
+      destinations: { id: string; status: string }[];
+    };
+    for (const d of snapshot.destinations)
+      if (d.id === "dev-telegram") d.status = "broken";
+    await route.fulfill({ response, json: snapshot });
+  });
+  await openDashboard(page);
+
+  const row = page
+    .getByRole("region", { name: "Destinations" })
+    .getByRole("listitem")
+    .filter({ hasText: "Ferry Updates" });
+  await expect(
+    row.getByText(
+      "Telegram stopped accepting posts here. Connect the chat again with Connect Telegram, then resume its routes.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("img", { name: /^Crossing map/ })
+      .locator("text", { hasText: "Reconnect Telegram" }),
+  ).toHaveCount(1);
 });
 
 test("the DM button shows the DM link", async ({ page }) => {
@@ -237,6 +349,7 @@ test("moves focus to Settings when a DM connects", async ({ page }) => {
   });
   await openDashboard(page);
   const settings = page.getByRole("region", { name: "Settings" });
+  const refreshed = refreshFinished(page);
   await settings
     .getByRole("button", { name: "Get alerts in a Telegram DM" })
     .click();
@@ -250,6 +363,7 @@ test("moves focus to Settings when a DM connects", async ({ page }) => {
   await expect(
     settings.getByRole("link", { name: "Open Ferry in Telegram" }),
   ).toHaveCount(0);
+  await refreshed;
 });
 
 test("keeps a Telegram DM out of routes and the map", async ({ page }) => {

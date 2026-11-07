@@ -9,16 +9,21 @@ import {
   useState,
   useTransition,
 } from "react";
+import { TELEGRAM_LINK_TTL_S } from "@/lib/constants";
 import type { PublicDestination } from "@/lib/types";
 import ui from "../components/ui.module.css";
 import { startTelegramLinkAction } from "./actions";
 import { cx } from "./FormParts";
 import styles from "./TelegramConnect.module.css";
 
-/** How often an open panel asks whether Telegram has seen its code. */
+/** How often an open panel asks whether Telegram has seen its code at first, */
 const CHECK_EVERY_MS = 3_000;
-/** How long it keeps asking. */
-const CHECK_FOR_MS = 3 * 60_000;
+/** for how long after the code is shown, */
+const CHECK_OFTEN_FOR_MS = 3 * 60_000;
+/** and how often after that. */
+const CHECK_LATER_EVERY_MS = 15_000;
+/** Past this age the server has dropped the code, with a minute to spare. */
+const CODE_GONE_AFTER_MS = (TELEGRAM_LINK_TTL_S + 60) * 1000;
 
 type Started = Extract<
   Awaited<ReturnType<typeof startTelegramLinkAction>>,
@@ -33,7 +38,6 @@ interface CheckAnswer {
 /** Why a panel closed without connecting. */
 const STOPPED = {
   expired: "That code expired. Get a new one.",
-  missed: "Ferry didn't see the code. Try again.",
   signedOut: "Sign in again to connect Telegram.",
   unavailable: "Telegram isn't set up on this Ferry.",
 } as const;
@@ -126,29 +130,19 @@ export default function TelegramConnect({
     say(STOPPED[why], true);
   });
 
-  // Asks every few seconds, one request at a time, until an answer ends it,
-  // the time runs out, or the panel closes.
+  // Asks one request at a time, often at first and then less often, until
+  // the server answers for the code, or the panel closes or gets a new code.
+  // Only the server's answers end it, so a check that comes due late, as on
+  // a phone back from Telegram, still runs and counts.
   const code = link?.code ?? null;
   useEffect(() => {
     if (code === null) return;
+    const shownAt = Date.now();
     const request = new AbortController();
     let timer: number | undefined;
-    let over = false;
-    const deadline = window.setTimeout(
-      () => end(() => stopped("missed")),
-      CHECK_FOR_MS,
-    );
 
-    function end(finish: () => void) {
-      if (over) return;
-      over = true;
-      request.abort();
-      window.clearTimeout(timer);
-      window.clearTimeout(deadline);
-      finish();
-    }
-
-    async function check() {
+    /** One question to the server: its answer, a status that ends it, or nothing. */
+    async function ask(): Promise<CheckAnswer | 401 | 404 | null> {
       try {
         const res = await fetch("/api/telegram/check", {
           method: "POST",
@@ -156,26 +150,34 @@ export default function TelegramConnect({
           body: JSON.stringify({ code }),
           signal: request.signal,
         });
-        if (res.status === 401) return end(() => stopped("signedOut"));
-        if (res.status === 404) return end(() => stopped("unavailable"));
-        if (res.ok) {
-          const answer = (await res.json()) as CheckAnswer;
-          if (answer.status === "connected")
-            return end(() => connected(answer.destination));
-          if (answer.status === "expired") return end(() => stopped("expired"));
-        }
+        if (res.status === 401 || res.status === 404) return res.status;
+        return res.ok ? ((await res.json()) as CheckAnswer) : null;
       } catch {
-        // Offline, or the panel closed: the next check, if any, tries again.
+        return null; // Offline, or the panel closed.
       }
-      if (!over) timer = window.setTimeout(check, CHECK_EVERY_MS);
+    }
+
+    async function check() {
+      const answer = await ask();
+      // The panel closed, or moved on to a new code, while this one was out.
+      if (request.signal.aborted) return;
+      if (answer === 401) return stopped("signedOut");
+      if (answer === 404) return stopped("unavailable");
+      if (answer?.status === "connected") return connected(answer.destination);
+      if (answer?.status === "expired") return stopped("expired");
+      const age = Date.now() - shownAt;
+      // A safety cap, in case the server never says the code expired.
+      if (age > CODE_GONE_AFTER_MS) return stopped("expired");
+      timer = window.setTimeout(
+        check,
+        age < CHECK_OFTEN_FOR_MS ? CHECK_EVERY_MS : CHECK_LATER_EVERY_MS,
+      );
     }
 
     timer = window.setTimeout(check, CHECK_EVERY_MS);
     return () => {
-      over = true;
       request.abort();
       window.clearTimeout(timer);
-      window.clearTimeout(deadline);
     };
   }, [code]);
 

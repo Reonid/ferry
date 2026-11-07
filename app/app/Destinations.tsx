@@ -77,8 +77,8 @@ function DestinationRow({
         {broken &&
           (destination.kind === "telegram" ? (
             <p className={styles.broken}>
-              Telegram stopped accepting posts here. Add Ferry to the chat
-              again, then remove this one.
+              Telegram stopped accepting posts here. Connect the chat again with
+              Connect Telegram, then resume its routes.
             </p>
           ) : (
             <p className={styles.broken}>

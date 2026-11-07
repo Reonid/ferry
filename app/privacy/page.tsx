@@ -102,9 +102,9 @@ const EXPIRING: Item[] = [
   },
   {
     name: "Telegram link codes",
-    time: "15 minutes",
+    time: "up to 15 minutes",
     detail:
-      "Each one-time code that connects a Telegram chat, with your account ID. A code works for 15 minutes. Once a chat uses it, Ferry keeps it 15 minutes from then, with the chat it connected.",
+      "Each one-time code that connects a Telegram chat, with your account ID and, once a chat uses it, the chat it connected.",
   },
   {
     name: "Sent-alert markers",
@@ -268,9 +268,9 @@ export default function PrivacyPage() {
             <p>
               Delete my data is under Settings on your dashboard. It deletes
               everything above and signs you out. A few records run out on their
-              own instead, on the schedule above: delivery claims, sent-alert
-              markers, API-call counters and sync locks. Nothing changes in
-              Buffer.
+              own instead, on the schedule above: delivery claims, Telegram link
+              codes, sent-alert markers, API-call counters and sync locks.
+              Nothing changes in Buffer.
             </p>
             <p>
               Removing a Discord destination, or deleting your data, deletes

@@ -598,6 +598,14 @@ describe("telegram", () => {
     expect(TELEGRAM_LINK_TTL_S).toBe(15 * 60);
   });
 
+  it("keeps a Telegram link code for the seconds it's given", async () => {
+    await store.putTelegramLink("abc", link, 60);
+    vi.advanceTimersByTime(59_000);
+    expect(await store.getTelegramLink("abc")).toEqual(link);
+    vi.advanceTimersByTime(1000);
+    expect(await store.getTelegramLink("abc")).toBeNull();
+  });
+
   it("stores the update offset", async () => {
     expect(await store.getTelegramOffset()).toBe(0);
     await store.putTelegramOffset(42);

@@ -69,6 +69,14 @@ export async function startTelegramLink(args: {
   return { code, links: linkUrls(args.botUsername, code) };
 }
 
+/** What's left of a code's 15 minutes, so using it doesn't keep it longer. */
+function secondsLeft(link: TelegramLink, now: number): number {
+  return Math.max(
+    1,
+    Math.ceil((link.createdAt + TELEGRAM_LINK_TTL_S * 1000 - now) / 1000),
+  );
+}
+
 function chatLabel(title: string | undefined): string {
   const cut = Array.from(title ?? "")
     .slice(0, MAX_LABEL)
@@ -142,7 +150,11 @@ async function handleCode(args: {
       chat.username ?? null,
       now,
     );
-    await store.putTelegramLink(code, { ...link, destinationId: dest.id });
+    await store.putTelegramLink(
+      code,
+      { ...link, destinationId: dest.id },
+      secondsLeft(link, now),
+    );
     await call("deleteMessage", {
       chat_id: chat.id,
       message_id: message.message_id,
@@ -160,7 +172,11 @@ async function handleCode(args: {
   const account = await store.getAccount(link.accountId);
   if (account)
     await store.putAccount({ ...account, notifyDestinationId: dest.id });
-  await store.putTelegramLink(code, { ...link, destinationId: dest.id });
+  await store.putTelegramLink(
+    code,
+    { ...link, destinationId: dest.id },
+    secondsLeft(link, now),
+  );
   await call("sendMessage", { chat_id: chat.id, text: DM_CONFIRMATION });
 }
 
