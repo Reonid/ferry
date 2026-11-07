@@ -13,6 +13,7 @@ export async function GET(): Promise<NextResponse> {
   const response = NextResponse.redirect(
     bufferAuthorizeUrl({
       clientId: env("BUFFER_CLIENT_ID"),
+      // baseUrl, not the request: redirect_uri must match the registered URI exactly.
       redirectUri: `${baseUrl()}/api/auth/buffer/callback`,
       state,
       codeChallenge: challenge,

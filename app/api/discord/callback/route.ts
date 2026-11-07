@@ -31,6 +31,7 @@ async function connect(request: NextRequest): Promise<void> {
     clientId: env("DISCORD_CLIENT_ID"),
     clientSecret: env("DISCORD_CLIENT_SECRET"),
     code,
+    // baseUrl, not the request: redirect_uri must match the registered URI exactly.
     redirectUri: `${baseUrl()}/api/discord/callback`,
   });
   const destination = await addDiscordDestination(

@@ -17,14 +17,21 @@ describe("dev login", () => {
   it("is not found when a real Redis is configured", async () => {
     for (const name of REDIS_URLS) {
       devLoginEnv({ [name]: "https://example.upstash.io" });
-      expect((await GET()).status, name).toBe(404);
+      expect(
+        (await GET(new Request("https://localhost:3100/api/dev/login"))).status,
+        name,
+      ).toBe(404);
     }
   });
 
   it("is not found outside development or without FERRY_DEV_LOGIN", async () => {
     devLoginEnv({ NODE_ENV: "production" });
-    expect((await GET()).status).toBe(404);
+    expect(
+      (await GET(new Request("https://localhost:3100/api/dev/login"))).status,
+    ).toBe(404);
     devLoginEnv({ FERRY_DEV_LOGIN: "" });
-    expect((await GET()).status).toBe(404);
+    expect(
+      (await GET(new Request("https://localhost:3100/api/dev/login"))).status,
+    ).toBe(404);
   });
 });

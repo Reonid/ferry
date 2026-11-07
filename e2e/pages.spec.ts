@@ -22,6 +22,8 @@ const IMAGE_NOTE =
 async function seed(request: APIRequestContext): Promise<void> {
   const response = await request.get("/api/dev/login", { maxRedirects: 0 });
   expect(response.status(), "dev login").toBe(307);
+  // Relative to the request, so the cookie host and the redirect host agree.
+  expect(new URL(response.headers().location ?? "").pathname).toBe("/app");
 }
 
 /** Signs this page's browser in as the seeded account. */

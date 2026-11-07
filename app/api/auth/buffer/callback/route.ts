@@ -35,6 +35,7 @@ async function signIn(request: NextRequest): Promise<void> {
     clientId: env("BUFFER_CLIENT_ID"),
     clientSecret: env("BUFFER_CLIENT_SECRET"),
     code,
+    // baseUrl, not the request: redirect_uri must match the registered URI exactly.
     redirectUri: `${baseUrl()}/api/auth/buffer/callback`,
     codeVerifier: verifier,
     now,

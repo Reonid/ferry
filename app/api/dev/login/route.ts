@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { seedDevAccount } from "@/lib/dev/seed";
-import { baseUrl } from "@/lib/env";
 import { getSession } from "@/lib/session";
 import { getStore } from "@/lib/store";
 
-export async function GET(): Promise<NextResponse> {
+export async function GET(request: Request): Promise<NextResponse> {
   if (
     process.env.NODE_ENV !== "development" ||
     process.env.FERRY_DEV_LOGIN !== "1" ||
@@ -18,5 +17,6 @@ export async function GET(): Promise<NextResponse> {
   const session = await getSession();
   session.accountId = accountId;
   await session.save();
-  return NextResponse.redirect(`${baseUrl()}/app`);
+  // Relative to the request: the session cookie lives on the host that sent it.
+  return NextResponse.redirect(new URL("/app", request.url));
 }
