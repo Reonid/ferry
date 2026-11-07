@@ -119,12 +119,31 @@ export interface RedditDestination {
   status: "active";
   createdAt: number;
 }
-export type Destination = DiscordDestination | RedditDestination;
+export interface TelegramDestination {
+  id: string;
+  accountId: string;
+  kind: "telegram";
+  label: string;
+  chatId: string;
+  chatType: "channel" | "group" | "supergroup" | "private";
+  username: string | null;
+  status: "active" | "broken";
+  createdAt: number;
+}
+export type Destination =
+  DiscordDestination | RedditDestination | TelegramDestination;
+export interface TelegramLink {
+  accountId: string;
+  purpose: "chat" | "dm";
+  createdAt: number;
+  destinationId: string | null;
+}
 export interface PublicDestination {
   id: string;
   kind: Destination["kind"];
   label: string;
   status: "active" | "broken";
+  chatType?: TelegramDestination["chatType"];
 }
 
 export interface MirrorImage {

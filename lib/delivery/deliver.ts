@@ -86,6 +86,13 @@ async function dispatch(args: {
       startAt: args.startAt,
     });
   }
+  if (destination.kind === "telegram") {
+    return {
+      ok: false,
+      retryable: false,
+      reason: "Telegram isn't set up on this Ferry.",
+    };
+  }
   const token = deps.newToken();
   const draft = buildRedditDraft({
     post: mirror,
