@@ -8,6 +8,11 @@ import type { TelegramCall } from "./destinations/telegram/format";
 import type { DeliverDeps } from "./delivery/deliver";
 import type { Account } from "./types";
 
+/** The alert raised once when a destination stops accepting posts. */
+export function brokenDestinationAlertKey(destId: string): string {
+  return `dest-broken:${destId}`;
+}
+
 export function buildAlertMessage(
   message: string,
   supportUrl: string | null,

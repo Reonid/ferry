@@ -1,4 +1,5 @@
 import { randomInt } from "node:crypto";
+import { brokenDestinationAlertKey } from "../../alerts";
 import {
   TELEGRAM_CHECK_LOCK_MS,
   TELEGRAM_LINK_CALL_TIMEOUT_MS,
@@ -118,6 +119,13 @@ async function upsertDestination(
     createdAt: existing?.createdAt ?? now,
   };
   await store.putDestination(dest);
+  // The chat takes posts again: its "Reconnect it" alert goes, and the next
+  // break raises a new one.
+  if (existing?.status === "broken")
+    await store.clearAlertKey(
+      accountId,
+      brokenDestinationAlertKey(existing.id),
+    );
   return dest;
 }
 

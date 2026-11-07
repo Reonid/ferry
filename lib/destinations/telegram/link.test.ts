@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TELEGRAM_LINK_TTL_S } from "../../constants";
-import { account } from "../../delivery/test-support";
-import type { TelegramDestination } from "../../types";
+import { deliverToDestination } from "../../delivery/deliver";
+import { account, makeDeps, mirror } from "../../delivery/test-support";
+import type {
+  DeliveryOutcome,
+  Destination,
+  TelegramDestination,
+} from "../../types";
 import { makeSyncDeps } from "../../sync/test-support";
 import {
   checkTelegramLink,
@@ -293,6 +298,50 @@ describe("processTelegramUpdates", () => {
       status: "active",
       label: "My Channel",
     });
+  });
+
+  it("reconnecting a broken chat clears its alert, so a new break alerts again", async () => {
+    const broken: DeliveryOutcome = {
+      ok: false,
+      retryable: false,
+      reason: "Ferry can no longer post to this Telegram chat",
+      destinationBroken: true,
+    };
+    const { deps, store } = makeDeps([], [broken, broken]);
+    await store.putAccount(account());
+    let updateId = 0;
+    const connect = async (): Promise<Destination> => {
+      const { code } = await startTelegramLink({
+        store,
+        accountId: "acct",
+        purpose: "chat",
+        now: NOW,
+        botUsername: "b",
+      });
+      await run(store, fakeTelegram([channelPost(++updateId, code)]).fetchImpl);
+      const [dest] = await store.listDestinations("acct");
+      return dest!;
+    };
+    const postTo = (destination: Destination, groupKey: string) =>
+      deliverToDestination({
+        account: account(),
+        destination,
+        mirror: mirror({ groupKey, postIds: [groupKey] }),
+        deps,
+      });
+    const alertKeys = async () =>
+      (await store.listAlerts("acct", 10)).map((a) => a.key);
+
+    const first = await connect();
+    expect(await postTo(first, "g1")).toBe("failed");
+    expect(await alertKeys()).toEqual([`dest-broken:${first.id}`]);
+
+    const again = await connect();
+    expect(again).toMatchObject({ id: first.id, status: "active" });
+    expect(await alertKeys()).toEqual([]);
+
+    expect(await postTo(again, "g2")).toBe("failed");
+    expect(await alertKeys()).toEqual([`dest-broken:${first.id}`]);
   });
 
   it("ignores unknown and expired codes", async () => {

@@ -1,4 +1,8 @@
-import { raiseAlert, sendToNotifyTarget } from "../alerts";
+import {
+  brokenDestinationAlertKey,
+  raiseAlert,
+  sendToNotifyTarget,
+} from "../alerts";
 import {
   CLAIM_GROUP_TTL_S,
   CLAIM_POST_TTL_S,
@@ -225,7 +229,7 @@ export async function handleFailure(args: {
     await raiseAlert({
       deps,
       account,
-      key: `dest-broken:${destination.id}`,
+      key: brokenDestinationAlertKey(destination.id),
       message: `Ferry can't post to ${destination.label} anymore. Reconnect it.`,
       supportUrl: null,
     });
