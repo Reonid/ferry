@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { deliverToDestination } from "./deliver";
 import { processRetries, retryFailedJob } from "./retries";
-import { NOW, account, discordDest, makeDeps, mirror } from "./test-support";
-import { MAX_ATTEMPTS, WRITE_AHEAD_MS } from "../constants";
+import {
+  NOW,
+  account,
+  discordDest,
+  makeDeps,
+  mirror,
+  telegramDest,
+} from "./test-support";
+import { MAX_ATTEMPTS, RETRY_JOB_TTL_S, WRITE_AHEAD_MS } from "../constants";
 import type { DeliveryOutcome } from "../types";
 
 const fail = (over = {}) =>
@@ -101,6 +108,27 @@ describe("processRetries", () => {
     for (const id of ["a", "b", "c"]) {
       expect(await ctx.store.getRetry(id)).toBeNull();
     }
+  });
+
+  it("deletes a due retry for a broken Telegram destination without sending", async () => {
+    const ctx = await setup();
+    await ctx.store.putDestination(telegramDest("tg", { status: "broken" }));
+    await ctx.store.putRetry(
+      {
+        id: "tg|g1",
+        accountId: "acct",
+        destinationId: "tg",
+        groupKey: "g1",
+        mirror: mirror(),
+        attempts: 1,
+        sentCount: 0,
+        failed: false,
+      },
+      NOW,
+    );
+    expect(await processRetries({ now: NOW, deps: ctx.deps })).toBe(0);
+    expect(ctx.telegramCalls).toHaveLength(0);
+    expect(await ctx.store.getRetry("tg|g1")).toBeNull();
   });
 });
 
@@ -223,6 +251,32 @@ describe("retryFailedJob", () => {
       await retryFailedJob({ ...base, accountId: "acct", jobId: "nope" }),
     ).toBe(false);
     expect(ctx.calls).toHaveLength(1);
+  });
+
+  it("refuses a failed job whose Telegram destination is broken", async () => {
+    const ctx = await setup();
+    await ctx.store.putDestination(telegramDest("tg", { status: "broken" }));
+    await ctx.store.putRetry(
+      {
+        id: "tg|g1",
+        accountId: "acct",
+        destinationId: "tg",
+        groupKey: "g1",
+        mirror: mirror(),
+        attempts: MAX_ATTEMPTS,
+        sentCount: 0,
+        failed: true,
+      },
+      NOW + RETRY_JOB_TTL_S * 1000,
+    );
+    expect(
+      await retryFailedJob({
+        deps: ctx.deps,
+        accountId: "acct",
+        jobId: "tg|g1",
+      }),
+    ).toBe(false);
+    expect(ctx.telegramCalls).toHaveLength(0);
   });
 
   it("resets attempts so a failing retry backs off again", async () => {
