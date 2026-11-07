@@ -200,6 +200,40 @@ describe("sendTelegramMessages", () => {
     expect(out).toEqual({ ok: true, url: "https://t.me/c/1234/8" });
   });
 
+  it("falls back to text when the group forbids media", async () => {
+    const s = script(
+      err(400, "Bad Request: not enough rights to send photos to the chat"),
+      okMsg(8),
+    );
+    const out = await sendTelegramMessages({
+      ...base,
+      calls: [photo],
+      fetchImpl: s.fetchImpl,
+    });
+    expect(s.seen.map((x) => x.method)).toEqual(["sendPhoto", "sendMessage"]);
+    expect(s.seen[1]!.body.text).toBe("cap\n\nhttps://i.example/1.png");
+    expect(out).toEqual({ ok: true, url: "https://t.me/c/1234/8" });
+
+    // A group that forbids text too can't take posts at all.
+    const muted = await sendTelegramMessages({
+      ...base,
+      calls: [photo],
+      fetchImpl: script(
+        err(400, "Bad Request: not enough rights to send photos to the chat"),
+        err(
+          400,
+          "Bad Request: not enough rights to send text messages to the chat",
+        ),
+      ).fetchImpl,
+    });
+    expect(muted).toMatchObject({
+      ok: false,
+      retryable: false,
+      destinationBroken: true,
+      sentCount: 0,
+    });
+  });
+
   it("falls back for a media group using the first caption and every url", async () => {
     const s = script(
       err(400, "Bad Request: failed to get HTTP URL content"),

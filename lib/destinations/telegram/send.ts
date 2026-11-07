@@ -8,6 +8,9 @@ type ApiFailure = Extract<TelegramResult<unknown>, { ok: false }>;
 
 const BROKEN_400 =
   /chat not found|bot was kicked|not a member|have no rights|not enough rights|CHAT_WRITE_FORBIDDEN|need administrator rights/i;
+/** A group can forbid members' media and still take their text. */
+const MEDIA_FORBIDDEN =
+  /not enough rights to send (photos|videos|media|documents)/i;
 
 function failureFor(res: ApiFailure, sentCount: number): Failure {
   if (res.status === 429 || res.retryAfterMs !== null) {
@@ -143,7 +146,9 @@ export async function sendTelegramMessages(args: {
       res.status === 400 &&
       !res.migrated &&
       res.retryAfterMs === null &&
-      !BROKEN_400.test(res.description)
+      // Checked before the broken patterns, which also match it.
+      (MEDIA_FORBIDDEN.test(res.description) ||
+        !BROKEN_400.test(res.description))
     ) {
       res = await send(fallbackCall(call));
     }
