@@ -10,6 +10,7 @@ import type {
   MirrorPost,
   RedditDestination,
   Route,
+  TelegramDestination,
 } from "../types";
 
 export const NOW = 1_000_000;
@@ -36,6 +37,21 @@ export const discordDest = (
   webhookToken: `tok-${id}`,
   guildId: "guild",
   channelId: "chan",
+  status: "active",
+  createdAt: 1,
+  ...over,
+});
+export const telegramDest = (
+  id: string,
+  over: Partial<TelegramDestination> = {},
+): TelegramDestination => ({
+  id,
+  accountId: "acct",
+  kind: "telegram",
+  label: `Tg ${id}`,
+  chatId: `-100${id}`,
+  chatType: "channel",
+  username: null,
   status: "active",
   createdAt: 1,
   ...over,
@@ -74,14 +90,17 @@ export const mirror = (over: Partial<MirrorPost> = {}): MirrorPost => ({
 });
 
 export type SendCall = Parameters<DeliverDeps["sendDiscord"]>[0];
+export type TelegramSendCall = Parameters<DeliverDeps["sendTelegram"]>[0];
 type Script = DeliveryOutcome | Error;
 
 /** Fake adapter: records calls, plays scripted outcomes in order, then succeeds. */
-export function makeDeps(script: Script[] = []) {
+export function makeDeps(script: Script[] = [], telegramScript: Script[] = []) {
   const redis = createFakeRedis();
   const store = createStore(redis, randomBytes(32));
   const calls: SendCall[] = [];
+  const telegramCalls: TelegramSendCall[] = [];
   const queue = [...script];
+  const telegramQueue = [...telegramScript];
   let tokenN = 0;
   const deps: DeliverDeps = {
     store,
@@ -99,6 +118,18 @@ export function makeDeps(script: Script[] = []) {
         }
       );
     }),
+    telegram: { token: "test-token", botUsername: "FerryTestBot" },
+    sendTelegram: vi.fn(async (a: TelegramSendCall) => {
+      telegramCalls.push(a);
+      const next = telegramQueue.shift();
+      if (next instanceof Error) throw next;
+      return (
+        next ?? {
+          ok: true as const,
+          url: `https://t.me/test/${telegramCalls.length}`,
+        }
+      );
+    }),
   };
-  return { deps, store, calls, redis };
+  return { deps, store, calls, telegramCalls, redis };
 }

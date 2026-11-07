@@ -1,4 +1,4 @@
-import { raiseAlert } from "../alerts";
+import { raiseAlert, sendToNotifyTarget } from "../alerts";
 import {
   CLAIM_GROUP_TTL_S,
   CLAIM_POST_TTL_S,
@@ -10,8 +10,12 @@ import {
 } from "../constants";
 import { buildDiscordMessages } from "../destinations/discord/format";
 import type { sendDiscordMessages } from "../destinations/discord/send";
+import { buildTelegramCalls } from "../destinations/telegram/format";
+import { buildTelegramDraftNotice } from "../destinations/telegram/notice";
+import type { sendTelegramMessages } from "../destinations/telegram/send";
 import { buildRedditDraft } from "../destinations/reddit/draft";
 import { buildDraftNotice } from "../destinations/reddit/notice";
+import type { TelegramConfig } from "../env";
 import type { Store } from "../store/store";
 import type {
   Account,
@@ -27,6 +31,8 @@ export interface DeliverDeps {
   store: Store;
   now: () => number;
   sendDiscord: typeof sendDiscordMessages;
+  sendTelegram: typeof sendTelegramMessages;
+  telegram: TelegramConfig | null;
   baseUrl: string;
   newToken: () => string;
 }
@@ -87,11 +93,20 @@ async function dispatch(args: {
     });
   }
   if (destination.kind === "telegram") {
-    return {
-      ok: false,
-      retryable: false,
-      reason: "Telegram isn't set up on this Ferry.",
-    };
+    if (!deps.telegram) {
+      return {
+        ok: false,
+        retryable: false,
+        reason: "Telegram isn't set up on this Ferry.",
+      };
+    }
+    return deps.sendTelegram({
+      token: deps.telegram.token,
+      chatId: destination.chatId,
+      username: destination.username,
+      calls: buildTelegramCalls(mirror),
+      startAt: args.startAt,
+    });
   }
   const token = deps.newToken();
   const draft = buildRedditDraft({
@@ -103,18 +118,11 @@ async function dispatch(args: {
   });
   await deps.store.putDraft(draft);
   const draftPageUrl = `${deps.baseUrl}/d/${token}`;
-  if (account.notifyDestinationId !== null) {
-    const notify = await deps.store.getDestination(account.notifyDestinationId);
-    if (notify?.kind === "discord" && notify.status === "active") {
-      // A failed notice is ignored: the draft is saved and shown on the dashboard.
-      await deps.sendDiscord({
-        webhookId: notify.webhookId,
-        webhookToken: notify.webhookToken,
-        guildId: notify.guildId,
-        messages: [buildDraftNotice(draft, draftPageUrl)],
-      });
-    }
-  }
+  // A failed notice is ignored: the draft is saved and shown on the dashboard.
+  await sendToNotifyTarget(deps, account, {
+    discord: buildDraftNotice(draft, draftPageUrl),
+    telegram: buildTelegramDraftNotice(draft, draftPageUrl),
+  });
   return { ok: true, url: draftPageUrl };
 }
 
@@ -126,7 +134,7 @@ async function attempt(args: {
   job: RetryJob;
 }): Promise<DeliveryStatus> {
   const { deps, account, destination, job } = args;
-  const startAt = destination.kind === "discord" ? job.sentCount : 0;
+  const startAt = destination.kind !== "reddit" ? job.sentCount : 0;
   const outcome = await dispatch({
     deps,
     account,
@@ -139,7 +147,7 @@ async function attempt(args: {
   }
   await deps.store.deleteRetry(job.id);
   const status: DeliveryStatus =
-    destination.kind === "discord" ? "delivered" : "draft_ready";
+    destination.kind !== "reddit" ? "delivered" : "draft_ready";
   await setDelivery(deps, account, job.mirror, destination.id, (existing) => {
     // A resumed send returns the url of a later message; keep the original.
     const url = startAt > 0 ? existing?.url : outcome.url;
@@ -207,7 +215,7 @@ export async function handleFailure(args: {
   const { deps, account, destination, job, outcome } = args;
   const sentCount = outcome.sentCount ?? job.sentCount;
 
-  if (outcome.destinationBroken && destination.kind === "discord") {
+  if (outcome.destinationBroken && destination.kind !== "reddit") {
     await deps.store.putDestination({ ...destination, status: "broken" });
     for (const route of await deps.store.listRoutes(account.accountId)) {
       if (route.destinationId === destination.id && !route.paused) {

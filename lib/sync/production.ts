@@ -3,7 +3,8 @@ import { bufferRequest } from "../buffer/client";
 import { getAccessToken } from "../buffer/tokens";
 import { newToken } from "../crypto";
 import { sendDiscordMessages } from "../destinations/discord/send";
-import { baseUrl, env } from "../env";
+import { sendTelegramMessages } from "../destinations/telegram/send";
+import { baseUrl, env, telegramConfig } from "../env";
 import { getStore } from "../store";
 import type { SyncDeps } from "./runner";
 
@@ -30,6 +31,8 @@ export function productionDeps(): SyncDeps {
           }),
       }),
     sendDiscord: sendDiscordMessages,
+    sendTelegram: sendTelegramMessages,
+    telegram: telegramConfig(),
     baseUrl: baseUrl(),
     newToken,
   };
