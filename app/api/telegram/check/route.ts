@@ -1,11 +1,12 @@
-import { checkTelegramLink } from "@/lib/destinations/telegram/link";
+import {
+  checkTelegramLink,
+  isLinkCode,
+} from "@/lib/destinations/telegram/link";
 import { telegramConfig } from "@/lib/env";
 import { getSession } from "@/lib/session";
 import { getStore } from "@/lib/store";
 
 export const maxDuration = 30;
-
-const CODE = /^FERRY-[A-HJ-NP-Z2-9]{8}$/;
 
 export async function POST(request: Request): Promise<Response> {
   const session = await getSession();
@@ -23,7 +24,7 @@ export async function POST(request: Request): Promise<Response> {
     typeof body === "object" && body !== null && "code" in body
       ? (body as { code: unknown }).code
       : null;
-  if (typeof code !== "string" || !CODE.test(code))
+  if (typeof code !== "string" || !isLinkCode(code))
     return new Response("Bad request", { status: 400 });
 
   return Response.json(

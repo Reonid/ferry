@@ -54,6 +54,11 @@ export const TELEGRAM_POST_TIMEOUT_MS = 20 * SECOND;
 export const TELEGRAM_LINK_TTL_S = 15 * 60;
 export const TELEGRAM_CHECK_LOCK_MS = 10 * SECOND;
 export const TELEGRAM_UPDATE_PAGES = 5;
+/**
+ * Telegram keeps updates for a day, and after a week without any it picks
+ * the next update id at random, so an older offset could skip new updates.
+ */
+export const TELEGRAM_OFFSET_TTL_S = 24 * 60 * 60;
 export const TELEGRAM_LINK_CALL_TIMEOUT_MS = 3 * SECOND;
 export const REDDIT_TITLE_MAX = 120;
 export const SEND_LATEST_COOLDOWN_MS = 30 * SECOND;

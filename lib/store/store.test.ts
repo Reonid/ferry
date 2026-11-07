@@ -5,6 +5,7 @@ import {
   ALERT_DEDUPE_TTL_S,
   DRAFT_TTL_S,
   TELEGRAM_LINK_TTL_S,
+  TELEGRAM_OFFSET_TTL_S,
 } from "@/lib/constants";
 import { createFakeRedis } from "./fake-redis";
 import type { RedisLike } from "./redis-like";
@@ -606,10 +607,20 @@ describe("telegram", () => {
     expect(await store.getTelegramLink("abc")).toBeNull();
   });
 
-  it("stores the update offset", async () => {
-    expect(await store.getTelegramOffset()).toBe(0);
-    await store.putTelegramOffset(42);
-    expect(await store.getTelegramOffset()).toBe(42);
-    expect(await redis.get("ferry:tg:offset")).toBe("42");
+  it("keeps the update offset per bot", async () => {
+    expect(await store.getTelegramOffset("123")).toBe(0);
+    await store.putTelegramOffset("123", 42);
+    expect(await store.getTelegramOffset("123")).toBe(42);
+    expect(await store.getTelegramOffset("456")).toBe(0);
+    expect(await redis.get("ferry:tg:offset:123")).toBe("42");
+  });
+
+  it("expires the update offset after a day", async () => {
+    await store.putTelegramOffset("123", 42);
+    vi.advanceTimersByTime(TELEGRAM_OFFSET_TTL_S * 1000 - 1000);
+    expect(await store.getTelegramOffset("123")).toBe(42);
+    vi.advanceTimersByTime(1000);
+    expect(await store.getTelegramOffset("123")).toBe(0);
+    expect(TELEGRAM_OFFSET_TTL_S).toBe(24 * 60 * 60);
   });
 });

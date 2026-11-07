@@ -16,7 +16,9 @@ import type {
 import { telegramCall } from "./api";
 
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const CODE_PATTERN = /FERRY-[A-HJ-NP-Z2-9]{8}/g;
+/** Finds a link code inside a message. */
+export const LINK_CODE = /FERRY-[A-HJ-NP-Z2-9]{8}/;
+const EXACT_CODE = new RegExp(`^${LINK_CODE.source}$`);
 const PAGE_LIMIT = 100;
 const MAX_LABEL = 60;
 const DM_CONFIRMATION =
@@ -39,6 +41,11 @@ export function newLinkCode(): string {
   let code = "";
   for (let i = 0; i < 8; i++) code += ALPHABET[randomInt(ALPHABET.length)];
   return `FERRY-${code}`;
+}
+
+/** True when the whole string is a link code. */
+export function isLinkCode(s: string): boolean {
+  return EXACT_CODE.test(s);
 }
 
 export function linkUrls(
@@ -129,8 +136,9 @@ async function handleCode(args: {
   const { chat } = message;
   const isChat = chat.type !== "private";
   if (link.purpose === "chat" ? !isChat : isChat) return;
-  // Keeps a code single-use even if a slow run outlives the update lock.
-  if (!(await store.claim(`tglink:${code}`, TELEGRAM_LINK_TTL_S))) return;
+  // Keeps a code single-use even if a slow run outlives the update lock. It
+  // lasts as long as the code does.
+  if (!(await store.claim(`tglink:${code}`, secondsLeft(link, now)))) return;
 
   const call = (method: string, params: Record<string, unknown>) =>
     telegramCall({
@@ -188,10 +196,12 @@ export async function processTelegramUpdates(args: {
   fetchImpl?: typeof fetch;
 }): Promise<void> {
   const { store, token, now, fetchImpl } = args;
+  // The public part of the token, so a new bot doesn't inherit an offset.
+  const botId = token.split(":")[0]!;
   const lock = await store.acquireLock("tg-updates", TELEGRAM_CHECK_LOCK_MS);
   if (lock === null) return;
   try {
-    let offset = await store.getTelegramOffset();
+    let offset = await store.getTelegramOffset(botId);
     for (let page = 0; page < TELEGRAM_UPDATE_PAGES; page++) {
       const res = await telegramCall<TelegramUpdate[]>({
         token,
@@ -205,18 +215,28 @@ export async function processTelegramUpdates(args: {
         fetchImpl,
         timeoutMs: TELEGRAM_LINK_CALL_TIMEOUT_MS,
       });
-      if (!res.ok || !Array.isArray(res.result)) return;
+      if (!res.ok) {
+        // Only Telegram's status and description: the URL holds the token.
+        // A bad token (401) or a set webhook (409) would stall every panel.
+        console.error(
+          `ferry: Telegram getUpdates failed (HTTP ${res.status}: ${res.description})`,
+        );
+        return;
+      }
+      if (!Array.isArray(res.result)) return;
       const updates = res.result;
       for (const update of updates) {
         const message = update.channel_post ?? update.message;
-        const content = message?.text ?? message?.caption;
-        if (!message || !content) continue;
-        for (const code of new Set(content.match(CODE_PATTERN) ?? []))
+        // A link message carries one code: alone in a channel, after /start
+        // in a DM or a group. Only the first is read, so a message stuffed
+        // with codes costs one lookup.
+        const code = (message?.text ?? message?.caption)?.match(LINK_CODE)?.[0];
+        if (message && code)
           await handleCode({ store, token, now, fetchImpl, code, message });
       }
       if (updates.length > 0) {
         offset = Math.max(...updates.map((u) => u.update_id)) + 1;
-        await store.putTelegramOffset(offset);
+        await store.putTelegramOffset(botId, offset);
       }
       if (updates.length < PAGE_LIMIT) return;
     }

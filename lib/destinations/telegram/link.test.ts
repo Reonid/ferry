@@ -1,10 +1,12 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { TELEGRAM_LINK_TTL_S } from "../../constants";
 import { account } from "../../delivery/test-support";
 import type { TelegramDestination } from "../../types";
 import { makeSyncDeps } from "../../sync/test-support";
 import {
   checkTelegramLink,
+  isLinkCode,
+  LINK_CODE,
   linkUrls,
   newLinkCode,
   processTelegramUpdates,
@@ -12,6 +14,8 @@ import {
 } from "./link";
 
 const token = "123456:SECRET-token";
+/** The public part of the token, which keys the bot's update offset. */
+const botId = "123456";
 const telegram = { token, botUsername: "ferry_bot" };
 const NOW = 1_000_000;
 
@@ -76,8 +80,31 @@ const run = (
   store: Awaited<ReturnType<typeof setup>>,
   fetchImpl: typeof fetch,
 ) => processTelegramUpdates({ store, token, now: NOW, fetchImpl });
+/** Records, and keeps out of the test output, the line a failed page logs. */
+const quietLog = () => vi.spyOn(console, "error").mockImplementation(() => {});
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("link codes", () => {
+  it("checks a whole string is a code", () => {
+    expect(isLinkCode(newLinkCode())).toBe(true);
+    expect(isLinkCode("FERRY-ABCDEFGH")).toBe(true);
+    for (const s of [
+      "",
+      "FERRY-ABCDEFG",
+      "FERRY-ABCDEFGHJ",
+      "FERRY-ABCDEFG1",
+      "ferry-ABCDEFGH",
+      " FERRY-ABCDEFGH",
+      "/start FERRY-ABCDEFGH",
+    ])
+      expect(isLinkCode(s), s).toBe(false);
+    expect("/start FERRY-ABCDEFGH FERRY-JKLMNPQR".match(LINK_CODE)?.[0]).toBe(
+      "FERRY-ABCDEFGH",
+    );
+  });
+
   it("makes codes and deep links", () => {
     expect(newLinkCode()).toMatch(/^FERRY-[A-HJ-NP-Z2-9]{8}$/);
     expect(linkUrls("bot", "FERRY-ABCDEFGH")).toEqual({
@@ -190,7 +217,7 @@ describe("processTelegramUpdates", () => {
       botUsername: "b",
     });
     await run(store, fakeTelegram([channelPost(1, code)]).fetchImpl);
-    await store.putTelegramOffset(0);
+    await store.putTelegramOffset(botId, 0);
     await run(
       store,
       fakeTelegram([channelPost(2, code, { id: -2002, title: "Second" })])
@@ -201,7 +228,7 @@ describe("processTelegramUpdates", () => {
     expect(dests[0]).toMatchObject({ chatId: "-1001" });
   });
 
-  it("keeps a used code only until 15 minutes after it was made", async () => {
+  it("keeps a used code, and its claim, only until 15 minutes after it was made", async () => {
     // The store's expiry reads Date.now(), so the test sets that clock.
     vi.useFakeTimers({ toFake: ["Date"] });
     try {
@@ -225,8 +252,10 @@ describe("processTelegramUpdates", () => {
       expect((await store.getTelegramLink(code))?.destinationId).toBeTruthy();
       vi.setSystemTime(NOW + TELEGRAM_LINK_TTL_S * 1000 - 1000);
       expect(await store.getTelegramLink(code)).not.toBeNull();
+      expect(await store.claim(`tglink:${code}`, 1)).toBe(false);
       vi.setSystemTime(NOW + TELEGRAM_LINK_TTL_S * 1000);
       expect(await store.getTelegramLink(code)).toBeNull();
+      expect(await store.claim(`tglink:${code}`, 1)).toBe(true);
     } finally {
       vi.useRealTimers();
     }
@@ -327,10 +356,29 @@ describe("processTelegramUpdates", () => {
       store,
       fakeTelegram([channelPost(7, "hello"), channelPost(9, "hi")]).fetchImpl,
     );
-    expect(await store.getTelegramOffset()).toBe(10);
+    expect(await store.getTelegramOffset(botId)).toBe(10);
+  });
+
+  it("keeps an offset per bot, so another bot's token starts from 0", async () => {
+    const store = await setup();
+    await run(
+      store,
+      fakeTelegram([channelPost(7, "hello"), channelPost(9, "hi")]).fetchImpl,
+    );
+    const other = fakeTelegram([channelPost(3, "hello")]);
+    await processTelegramUpdates({
+      store,
+      token: "654321:OTHER-token",
+      now: NOW,
+      fetchImpl: other.fetchImpl,
+    });
+    expect(other.calls[0]?.body.offset).toBe(0);
+    expect(await store.getTelegramOffset("654321")).toBe(4);
+    expect(await store.getTelegramOffset(botId)).toBe(10);
   });
 
   it("does not advance past a page that failed", async () => {
+    quietLog();
     const store = await setup();
     const fetchImpl = (async () =>
       Response.json(
@@ -338,17 +386,152 @@ describe("processTelegramUpdates", () => {
         { status: 409 },
       )) as unknown as typeof fetch;
     await run(store, fetchImpl);
-    expect(await store.getTelegramOffset()).toBe(0);
+    expect(await store.getTelegramOffset(botId)).toBe(0);
+  });
+
+  it("looks up one code per message, however many it holds", async () => {
+    const store = await setup();
+    const { code } = await startTelegramLink({
+      store,
+      accountId: "acct",
+      purpose: "dm",
+      now: NOW,
+      botUsername: "b",
+    });
+    // A 4096-character DM holds about 270 code-shaped strings.
+    const spam = Array.from({ length: 270 }, () => newLinkCode()).join(" ");
+    const reads = vi.spyOn(store, "getTelegramLink");
+    await run(
+      store,
+      fakeTelegram([
+        message(1, spam, { id: 7, type: "private" }),
+        message(2, `/start ${code} ${spam}`, { id: 42, type: "private" }),
+      ]).fetchImpl,
+    );
+    expect(reads).toHaveBeenCalledTimes(2);
+    expect(reads).toHaveBeenLastCalledWith(code);
+    const dests = await store.listDestinations("acct");
+    expect(dests).toHaveLength(1);
+    expect(dests[0]).toMatchObject({ chatId: "42", chatType: "private" });
+  });
+
+  it("leaves a code another run has claimed", async () => {
+    const store = await setup();
+    const { code } = await startTelegramLink({
+      store,
+      accountId: "acct",
+      purpose: "chat",
+      now: NOW,
+      botUsername: "b",
+    });
+    await store.claim(`tglink:${code}`, TELEGRAM_LINK_TTL_S);
+    const tg = fakeTelegram([channelPost(1, code)]);
+    await run(store, tg.fetchImpl);
+    expect(await store.listDestinations("acct")).toHaveLength(0);
+    expect(tg.calls.some((c) => c.method === "deleteMessage")).toBe(false);
   });
 
   it("processes updates once under concurrent checks", async () => {
     const store = await setup();
-    const tg = fakeTelegram([channelPost(1, "x")], true);
-    await Promise.all([run(store, tg.fetchImpl), run(store, tg.fetchImpl)]);
+    const { code } = await startTelegramLink({
+      store,
+      accountId: "acct",
+      purpose: "chat",
+      now: NOW,
+      botUsername: "b",
+    });
+    const tg = fakeTelegram([channelPost(1, code)], true);
+    const check = () =>
+      checkTelegramLink(
+        { store, now: NOW, telegram, fetchImpl: tg.fetchImpl },
+        "acct",
+        code,
+      );
+    const [first, lockedOut] = await Promise.all([check(), check()]);
     expect(tg.calls.filter((c) => c.method === "getUpdates")).toHaveLength(1);
+    expect(await store.listDestinations("acct")).toHaveLength(1);
+    expect(tg.calls.filter((c) => c.method === "deleteMessage")).toHaveLength(
+      1,
+    );
+    expect(first.status).toBe("connected");
+    // The locked-out check answered before the other run linked the code,
+    // and its next check sees the chat.
+    expect(lockedOut.status).toBe("waiting");
+    expect((await check()).status).toBe("connected");
+  });
+
+  it("keeps a full page's offset when the next page fails", async () => {
+    quietLog();
+    const store = await setup();
+    const { code } = await startTelegramLink({
+      store,
+      accountId: "acct",
+      purpose: "chat",
+      now: NOW,
+      botUsername: "b",
+    });
+    const page = Array.from({ length: 100 }, (_, i) =>
+      channelPost(i + 1, i === 49 ? code : `post ${i + 1}`),
+    );
+    const offsets: unknown[] = [];
+    const fetchImpl = (async (url: string, init: RequestInit) => {
+      if (!url.endsWith("/getUpdates"))
+        return Response.json({ ok: true, result: true });
+      offsets.push(JSON.parse(String(init.body)).offset);
+      return offsets.length === 1
+        ? Response.json({ ok: true, result: page })
+        : Response.json(
+            { ok: false, error_code: 502, description: "Bad Gateway" },
+            { status: 502 },
+          );
+    }) as unknown as typeof fetch;
+    const writes = vi.spyOn(store, "putTelegramOffset");
+    await run(store, fetchImpl);
+    expect(offsets).toEqual([0, 101]);
+    expect(await store.listDestinations("acct")).toHaveLength(1);
+    expect(writes).toHaveBeenCalledTimes(1);
+    expect(await store.getTelegramOffset(botId)).toBe(101);
+  });
+
+  it("logs a failed page's status, never the token", async () => {
+    const log = quietLog();
+    const store = await setup();
+    const unauthorized = (async () =>
+      Response.json(
+        { ok: false, error_code: 401, description: "Unauthorized" },
+        { status: 401 },
+      )) as unknown as typeof fetch;
+    await run(store, unauthorized);
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(log).toHaveBeenCalledWith(
+      "ferry: Telegram getUpdates failed (HTTP 401: Unauthorized)",
+    );
+    expect(String(log.mock.calls[0])).not.toContain(token);
+    expect(String(log.mock.calls[0])).not.toContain("SECRET");
+
+    // A failed clean-up after linking stays silent.
+    log.mockClear();
+    const { code } = await startTelegramLink({
+      store,
+      accountId: "acct",
+      purpose: "chat",
+      now: NOW,
+      botUsername: "b",
+    });
+    const cannotDelete = (async (url: string) =>
+      url.endsWith("/getUpdates")
+        ? Response.json({ ok: true, result: [channelPost(1, code)] })
+        : Response.json(
+            { ok: false, error_code: 400, description: "Bad Request" },
+            { status: 400 },
+          )) as unknown as typeof fetch;
+    await run(store, cannotDelete);
+    expect(await store.listDestinations("acct")).toHaveLength(1);
+    expect(log).not.toHaveBeenCalled();
   });
 
   it("never puts the bot token in an error", async () => {
+    quietLog();
     const store = await setup();
     const { code } = await startTelegramLink({
       store,

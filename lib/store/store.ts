@@ -6,6 +6,7 @@ import {
   DRAFT_TTL_S,
   RETRY_JOB_TTL_S,
   TELEGRAM_LINK_TTL_S,
+  TELEGRAM_OFFSET_TTL_S,
 } from "@/lib/constants";
 import type {
   Account,
@@ -49,8 +50,10 @@ export interface Store {
     ttlSeconds?: number,
   ): Promise<void>;
   getTelegramLink(code: string): Promise<TelegramLink | null>;
-  getTelegramOffset(): Promise<number>;
-  putTelegramOffset(n: number): Promise<void>;
+  /** Per bot, by the public id that starts its token. */
+  getTelegramOffset(botId: string): Promise<number>;
+  /** Kept for a day, as long as Telegram keeps updates. */
+  putTelegramOffset(botId: string, n: number): Promise<void>;
   getSyncState(id: string): Promise<SyncState>;
   putSyncState(id: string, s: SyncState): Promise<void>;
   scheduleSync(id: string, at: number): Promise<void>;
@@ -98,7 +101,7 @@ const k = {
   act: (id: string, groupKey: string) => `ferry:act:${id}:${groupKey}`,
   acts: (id: string) => `ferry:acts:${id}`,
   tgLink: (code: string) => `ferry:tglink:${code}`,
-  tgOffset: () => "ferry:tg:offset",
+  tgOffset: (botId: string) => `ferry:tg:offset:${botId}`,
   draft: (token: string) => `ferry:draft:${token}`,
   drafts: (id: string) => `ferry:drafts:${id}`,
   alertKey: (id: string, key: string) => `ferry:alertkey:${id}:${key}`,
@@ -237,10 +240,11 @@ export function createStore(redis: RedisLike, key: Buffer): Store {
     putTelegramLink: (code, link, ttlSeconds = TELEGRAM_LINK_TTL_S) =>
       setJson(k.tgLink(code), link, { ex: ttlSeconds }),
     getTelegramLink: (code) => getJson<TelegramLink>(k.tgLink(code)),
-    async getTelegramOffset() {
-      return (await getJson<number>(k.tgOffset())) ?? 0;
+    async getTelegramOffset(botId) {
+      return (await getJson<number>(k.tgOffset(botId))) ?? 0;
     },
-    putTelegramOffset: (n) => setJson(k.tgOffset(), n),
+    putTelegramOffset: (botId, n) =>
+      setJson(k.tgOffset(botId), n, { ex: TELEGRAM_OFFSET_TTL_S }),
 
     async deleteDestination(id, destId) {
       await redis.srem(k.dests(id), destId);
