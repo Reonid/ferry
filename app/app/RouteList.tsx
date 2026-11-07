@@ -240,7 +240,8 @@ export default function RouteList({
         <div className={styles.empty}>
           <p>
             A route carries posts from your Buffer channels to a destination.
-            Connect a Discord channel to draw your first one.
+            Connect a Discord channel, or a Telegram channel or group, to draw
+            your first one.
           </p>
           <a href="/api/discord/connect" className={cx(ui.button, ui.primary)}>
             Connect a Discord channel

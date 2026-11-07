@@ -95,7 +95,10 @@ export default function TelegramConnect({
           return;
         }
         setLink(result);
-        say("Waiting for the code…");
+        // A DM never shows a code: it waits on Start in Telegram.
+        say(
+          purpose === "dm" ? "Waiting for Telegram…" : "Waiting for the code…",
+        );
       });
     });
   }
@@ -225,8 +228,9 @@ export default function TelegramConnect({
                 </div>
               </div>
               <p id={howId} className={ui.hint}>
-                For a channel, post this code there once Ferry is an admin. For
-                a group, Ferry connects as soon as you add it.
+                For a channel, post this code there once Ferry is an admin.
+                Ferry asks to delete messages only so it can remove the code
+                post. For a group, Ferry connects as soon as you add it.
               </p>
               <div className={styles.links}>
                 <a

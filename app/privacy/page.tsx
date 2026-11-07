@@ -243,10 +243,15 @@ export default function PrivacyPage() {
               <li>
                 <strong>Telegram</strong> receives what you route there through
                 its Bot API: your posts, Reddit draft notices and alerts, in the
-                chats you connect. In groups, Ferry&apos;s bot sees only
-                commands sent to it. In a channel, it reads posts only to find a
-                link code, and never stores them. Telegram has no alt text, so
-                images arrive there without their descriptions.
+                chats you connect. In a group, Ferry&apos;s bot receives
+                commands sent to it and replies to its own messages, or every
+                message if someone makes it an admin. In a channel, where
+                it&apos;s an admin, it receives every post. In a DM, it receives
+                everything sent to it. Ferry reads all of these only to find a
+                link code, and never stores them. It asks to delete messages in
+                a channel only so it can remove the code post once the channel
+                is connected. Telegram has no alt text, so images arrive there
+                without their descriptions.
               </li>
             </ul>
             <p>
@@ -291,7 +296,7 @@ export default function PrivacyPage() {
               </a>
               . Issues are public, so leave out anything private.
             </p>
-            <p className={styles.updated}>Last updated November 7, 2026.</p>
+            <p className={styles.updated}>Last updated November 8, 2026.</p>
           </section>
         </div>
       </main>

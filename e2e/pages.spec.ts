@@ -175,6 +175,13 @@ test("privacy lists stored data", async ({ page }) => {
     await expect(others).toContainText(processor);
   await expect(others).toContainText("Telegram has no alt text");
   await expect(others).toContainText(
+    "In a group, Ferry's bot receives commands sent to it and replies to its own messages, or every message if someone makes it an admin. In a channel, where it's an admin, it receives every post. In a DM, it receives everything sent to it. Ferry reads all of these only to find a link code, and never stores them.",
+  );
+  await expect(others).toContainText(
+    "It asks to delete messages in a channel only so it can remove the code post once the channel is connected.",
+  );
+  await expect(others).not.toContainText("sees only commands");
+  await expect(others).toContainText(
     "Ferry never posts to Reddit. Opening a draft's Reddit link sends its title and text to Reddit's submit page, and nothing is posted until you press Post there.",
   );
   await expect(others).toContainText("no analytics and no ads");

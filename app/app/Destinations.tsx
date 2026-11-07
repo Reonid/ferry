@@ -31,6 +31,13 @@ const TELEGRAM_KIND: Record<
   private: "Telegram DM",
 };
 
+/** How to fix a broken Telegram chat: connecting it again revives its row. */
+const TELEGRAM_BROKEN =
+  "Telegram stopped accepting posts here. Connect the chat again with Connect Telegram, then resume its routes.";
+/** A basic group upgraded to a supergroup gets a new id, so a new row. */
+const TELEGRAM_GROUP_BROKEN =
+  "Telegram stopped accepting posts here. Connect the group again with Connect Telegram, then resume its routes. If it comes back as a new row, add the routes there and remove this one.";
+
 /** The line under a destination's name. */
 function kindLabel(destination: PublicDestination): string {
   if (destination.kind === "discord") return "Discord channel";
@@ -77,8 +84,9 @@ function DestinationRow({
         {broken &&
           (destination.kind === "telegram" ? (
             <p className={styles.broken}>
-              Telegram stopped accepting posts here. Connect the chat again with
-              Connect Telegram, then resume its routes.
+              {destination.chatType === "group"
+                ? TELEGRAM_GROUP_BROKEN
+                : TELEGRAM_BROKEN}
             </p>
           ) : (
             <p className={styles.broken}>

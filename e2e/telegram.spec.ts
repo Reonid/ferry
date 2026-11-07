@@ -6,7 +6,7 @@ import { tabTo } from "./keyboard";
 const BOT = "https://t.me/FerryTestBot";
 const CODE = /^FERRY-[A-HJ-NP-Z2-9]{8}$/;
 const HOW =
-  "For a channel, post this code there once Ferry is an admin. For a group, Ferry connects as soon as you add it.";
+  "For a channel, post this code there once Ferry is an admin. Ferry asks to delete messages only so it can remove the code post. For a group, Ferry connects as soon as you add it.";
 
 interface Answer {
   status: "waiting" | "connected" | "expired";
@@ -297,6 +297,36 @@ test("tells how to fix a broken Telegram chat", async ({ page }) => {
   ).toHaveCount(1);
 });
 
+test("tells how to fix a broken basic group", async ({ page }) => {
+  // Every poll reports the seeded chat as a broken basic group, which
+  // Telegram may have upgraded to a supergroup with a new id.
+  await page.route("**/api/live", async (route) => {
+    const response = await route.fetch();
+    const snapshot = (await response.json()) as {
+      destinations: { id: string; status: string; chatType?: string }[];
+    };
+    for (const d of snapshot.destinations)
+      if (d.id === "dev-telegram") {
+        d.status = "broken";
+        d.chatType = "group";
+      }
+    await route.fulfill({ response, json: snapshot });
+  });
+  await openDashboard(page);
+
+  const row = page
+    .getByRole("region", { name: "Destinations" })
+    .getByRole("listitem")
+    .filter({ hasText: "Ferry Updates" });
+  await expect(row.getByText("Telegram group", { exact: true })).toBeVisible();
+  await expect(
+    row.getByText(
+      "Telegram stopped accepting posts here. Connect the group again with Connect Telegram, then resume its routes. If it comes back as a new row, add the routes there and remove this one.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+});
+
 test("the DM button shows the DM link", async ({ page }) => {
   const asked = await answerChecks(page);
   await openDashboard(page);
@@ -321,7 +351,7 @@ test("the DM button shows the DM link", async ({ page }) => {
       exact: true,
     }),
   ).toBeVisible();
-  await expect(statusIn(settings)).toHaveText("Waiting for the code…");
+  await expect(statusIn(settings)).toHaveText("Waiting for Telegram…");
   // The DM link carries the code: nothing to copy, and no chat links.
   await expect(
     settings.getByRole("textbox", { name: "Your code" }),
@@ -419,6 +449,40 @@ test("keeps a Telegram DM out of routes and the map", async ({ page }) => {
   await expect(
     alerts.locator("option", { hasText: "r/SideProject" }),
   ).toHaveCount(0);
+});
+
+test("the empty Routes section points at Discord and Telegram", async ({
+  page,
+}) => {
+  // Every poll brings only a Telegram DM, which takes alerts but no routes.
+  await page.route("**/api/live", async (route) => {
+    const response = await route.fetch();
+    const snapshot = (await response.json()) as {
+      destinations: unknown[];
+      routes: unknown[];
+    };
+    snapshot.destinations = [
+      {
+        id: "e2e-dm",
+        kind: "telegram",
+        label: "Telegram DM",
+        status: "active",
+        chatType: "private",
+      },
+    ];
+    snapshot.routes = [];
+    await route.fulfill({ response, json: snapshot });
+  });
+  await openDashboard(page);
+
+  await expect(
+    page
+      .getByRole("region", { name: "Routes" })
+      .getByText(
+        "A route carries posts from your Buffer channels to a destination. Connect a Discord channel, or a Telegram channel or group, to draw your first one.",
+        { exact: true },
+      ),
+  ).toBeVisible();
 });
 
 test("passes axe in light and dark with the panel open", async ({ page }) => {
