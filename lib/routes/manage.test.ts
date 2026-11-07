@@ -39,6 +39,30 @@ const valid = {
 };
 
 describe("validateRouteInput", () => {
+  it("rejects a private chat as a route destination", () => {
+    const dm = {
+      id: "t1",
+      accountId: "acct",
+      kind: "telegram" as const,
+      label: "Telegram DM",
+      chatId: "42",
+      chatType: "private" as const,
+      username: null,
+      status: "active" as const,
+      createdAt: 1,
+    };
+    expect(
+      validateRouteInput({
+        ...valid,
+        destinationId: "t1",
+        destinations: [dm],
+      }),
+    ).toEqual({
+      ok: false,
+      error:
+        "Pick a channel or group for posts. Direct messages are for alerts only.",
+    });
+  });
   it("requires a channel", () => {
     expect(validateRouteInput({ ...valid, channelIds: [] })).toEqual({
       ok: false,
@@ -267,12 +291,30 @@ describe("destinations", () => {
     await store.putDestination(discordDest("d1"));
     expect(await setNotifyDestination(store, "acct", "rd")).toEqual({
       ok: false,
-      error: "Pick a Discord channel for alerts.",
+      error: "Pick a Discord or Telegram destination for alerts.",
     });
     expect((await setNotifyDestination(store, "acct", "d1")).ok).toBe(true);
     expect((await store.getAccount("acct"))?.notifyDestinationId).toBe("d1");
     await setNotifyDestination(store, "acct", null);
     expect((await store.getAccount("acct"))?.notifyDestinationId).toBeNull();
+  });
+
+  it("accepts a Telegram DM as the alert target", async () => {
+    const { store } = makeSyncDeps();
+    await store.putAccount(account());
+    await store.putDestination({
+      id: "t1",
+      accountId: "acct",
+      kind: "telegram",
+      label: "Telegram DM",
+      chatId: "42",
+      chatType: "private",
+      username: null,
+      status: "active",
+      createdAt: 1,
+    });
+    expect((await setNotifyDestination(store, "acct", "t1")).ok).toBe(true);
+    expect((await store.getAccount("acct"))?.notifyDestinationId).toBe("t1");
   });
 
   it("refuses another account's Discord channel as the alert target", async () => {

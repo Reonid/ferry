@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAccount } from "@/lib/auth/current";
+import { startTelegramLink } from "@/lib/destinations/telegram/link";
+import { telegramConfig } from "@/lib/env";
 import {
   addRedditDestination,
   createRoute,
@@ -173,4 +175,28 @@ export async function deleteMyDataAction(): Promise<void> {
   const session = await getSession();
   session.destroy();
   redirect("/");
+}
+
+export async function startTelegramLinkAction(purpose: "chat" | "dm"): Promise<
+  | {
+      ok: true;
+      code: string;
+      links: Awaited<ReturnType<typeof startTelegramLink>>["links"];
+    }
+  | { ok: false; error: string }
+> {
+  const account = await requireAccount();
+  if (purpose !== "chat" && purpose !== "dm")
+    return { ok: false, error: "Try again." };
+  const telegram = telegramConfig();
+  if (!telegram)
+    return { ok: false, error: "Telegram isn't set up on this Ferry." };
+  const started = await startTelegramLink({
+    store: getStore(),
+    accountId: account.accountId,
+    purpose,
+    now: Date.now(),
+    botUsername: telegram.botUsername,
+  });
+  return { ok: true, ...started };
 }
