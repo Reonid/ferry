@@ -191,6 +191,14 @@ test("can't be framed by another site", async ({ request }) => {
   // no-referrer would send the form's Origin as "null", which the
   // decision endpoint refuses.
   expect(res.headers()["referrer-policy"]).toBe("same-origin");
+  // Nor any other page: the dashboard's buttons count too.
+  for (const path of ["/", "/app", "/privacy"]) {
+    const page = await request.get(path);
+    expect(page.headers()["x-frame-options"], path).toBe("DENY");
+    expect(page.headers()["content-security-policy"], path).toBe(
+      "frame-ancestors 'none'",
+    );
+  }
 });
 
 test("the consent screen passes axe in light and dark, and takes the keyboard", async ({
