@@ -183,3 +183,20 @@ describe("replaceGrant", () => {
     expect(await redis.smembers("ferry:mcp:grants:a")).toEqual([]);
   });
 });
+
+describe("spent-token markers", () => {
+  it("keeps a spent refresh token as long as a connection", async () => {
+    await store.markRefreshSpent("h", { grantId: "g1", at: 7 });
+    expect(await store.getSpentRefresh("h")).toEqual({ grantId: "g1", at: 7 });
+    expect(await redis.get("ferry:mcp:spent-refresh:h")).not.toBeNull();
+    vi.advanceTimersByTime(MCP_GRANT_TTL_S * 1000);
+    expect(await store.getSpentRefresh("h")).toBeNull();
+  });
+
+  it("keeps a used code's connection for as long as codes live", async () => {
+    await store.markCodeSpent("h", "g1");
+    expect(await store.getSpentCode("h")).toBe("g1");
+    vi.advanceTimersByTime(OAUTH_CODE_TTL_S * 1000);
+    expect(await store.getSpentCode("h")).toBeNull();
+  });
+});

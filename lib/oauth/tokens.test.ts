@@ -574,3 +574,61 @@ describe("Disconnect racing a refresh", () => {
     ).toBe(false);
   });
 });
+
+describe("a spent token or code coming back", () => {
+  const refreshWith = (token: string) =>
+    exchange({
+      grant_type: "refresh_token",
+      client_id: claude.clientId,
+      refresh_token: token,
+    });
+
+  it("ends the connection when a rotated refresh token returns later", async () => {
+    const first = await connect();
+    const second = await refreshWith(first.refresh_token);
+    if (!second.ok) throw new Error(second.body.error);
+    vi.advanceTimersByTime(31_000);
+    // Whoever holds the old token, the owner's app or a thief, the pair ends.
+    expect(errorOf(await refreshWith(first.refresh_token))).toBe(
+      "invalid_grant",
+    );
+    expect(await fx.store.listGrants("acct")).toEqual([]);
+    expect(
+      (await checkAccessToken(fx.ctx(), `Bearer ${second.body.access_token}`))
+        .ok,
+    ).toBe(false);
+    expect(errorOf(await refreshWith(second.body.refresh_token))).toBe(
+      "invalid_grant",
+    );
+  });
+
+  it("takes a quick second refresh for the app's own retry, not a theft", async () => {
+    const first = await connect();
+    const second = await refreshWith(first.refresh_token);
+    if (!second.ok) throw new Error(second.body.error);
+    vi.advanceTimersByTime(5_000);
+    expect(errorOf(await refreshWith(first.refresh_token))).toBe(
+      "invalid_grant",
+    );
+    expect((await refreshWith(second.body.refresh_token)).ok).toBe(true);
+  });
+
+  it("ends the connection a code made when the code is used again", async () => {
+    const { code, verifier } = await approve();
+    const fields = {
+      grant_type: "authorization_code",
+      client_id: claude.clientId,
+      code,
+      code_verifier: verifier,
+      redirect_uri: CLAUDE_CALLBACK,
+    };
+    const first = await exchange(fields);
+    if (!first.ok) throw new Error(first.body.error);
+    expect(errorOf(await exchange(fields))).toBe("invalid_grant");
+    expect(
+      (await checkAccessToken(fx.ctx(), `Bearer ${first.body.access_token}`))
+        .ok,
+    ).toBe(false);
+    expect(await fx.store.listGrants("acct")).toEqual([]);
+  });
+});

@@ -1,5 +1,9 @@
 import { timingSafeEqual } from "node:crypto";
-import { MCP_ACCESS_TTL_S, MCP_GRANTS_KEPT } from "../constants";
+import {
+  MCP_ACCESS_TTL_S,
+  MCP_GRANTS_KEPT,
+  REFRESH_REUSE_GRACE_MS,
+} from "../constants";
 import { hashSecret, newId, newSecret } from "../crypto";
 import type { Store } from "../store/store";
 import type { McpGrant, OAuthCode } from "../types";
@@ -206,12 +210,18 @@ async function exchangeCode(
   if (!VERIFIER.test(verifier))
     return fail("invalid_request", "code_verifier isn't a PKCE verifier.");
 
-  const record = await ctx.store.takeOAuthCode(hashSecret(code));
+  const codeHash = hashSecret(code);
+  const record = await ctx.store.takeOAuthCode(codeHash);
   const gone = fail(
     "invalid_grant",
     "This code has been used, has expired or isn't Ferry's.",
   );
-  if (!record || record.clientId !== client.clientId) return gone;
+  if (!record) {
+    // A code used twice ends the connection it made (RFC 6749 4.1.2).
+    await endConnection(ctx, await ctx.store.getSpentCode(codeHash));
+    return gone;
+  }
+  if (record.clientId !== client.clientId) return gone;
   const redirectMatches = record.redirectUriSent
     ? redirectUri === record.redirectUri
     : redirectUri === null || redirectUri === record.redirectUri;
@@ -233,6 +243,7 @@ async function exchangeCode(
     refreshedAt: ctx.now,
   });
   await ctx.store.putGrant(minted.grant);
+  await ctx.store.markCodeSpent(codeHash, minted.grant.id);
   const result = await issueTokens(ctx, minted);
   // The newest connections stay; an 11th disconnects the oldest.
   const grants = await ctx.store.listGrants(record.accountId);
@@ -258,7 +269,16 @@ async function refresh(
   // Refresh tokens are single use: the new pair replaces this one.
   const hash = hashSecret(token);
   const grantId = await ctx.store.takeRefreshToken(hash);
-  const grant = grantId ? await ctx.store.getGrant(grantId) : null;
+  if (!grantId) {
+    // A rotated-out token came back. Soon after, it's the app's own retry.
+    // Later, two parties hold the connection and Ferry can't tell which is
+    // the owner's app, so it ends it (RFC 9700 4.14.2).
+    const spent = await ctx.store.getSpentRefresh(hash);
+    if (spent && ctx.now - spent.at > REFRESH_REUSE_GRACE_MS)
+      await endConnection(ctx, spent.grantId);
+    return gone;
+  }
+  const grant = await ctx.store.getGrant(grantId);
   // A key a race left behind can name a grant that has moved on.
   if (!grant || grant.refreshHash !== hash) return gone;
   if (
@@ -273,8 +293,18 @@ async function refresh(
   // Written only over a connection that still exists, so a Disconnect that
   // lands mid-refresh stays done.
   if (!(await ctx.store.replaceGrant(minted.grant))) return gone;
+  await ctx.store.markRefreshSpent(hash, { grantId: grant.id, at: ctx.now });
   await ctx.store.deleteAccessToken(grant.accessHash);
   return issueTokens(ctx, minted);
+}
+
+/** Deletes a connection and both of its current tokens, if it still exists. */
+async function endConnection(
+  ctx: OAuthContext,
+  grantId: string | null,
+): Promise<void> {
+  const grant = grantId ? await ctx.store.getGrant(grantId) : null;
+  if (grant) await ctx.store.deleteGrant(grant);
 }
 
 /** POST /api/oauth/token, after the body is parsed into a form. */

@@ -69,6 +69,11 @@ export const MCP_ACCESS_TTL_S = 60 * 60;
 export const MCP_GRANT_TTL_S = 30 * 24 * 60 * 60;
 /** Connecting an 11th app disconnects the oldest. */
 export const MCP_GRANTS_KEPT = 10;
+/**
+ * A spent refresh token seen again this soon is the app's own retry. Later,
+ * someone else has a copy, and the connection ends (RFC 9700 4.14.2).
+ */
+export const REFRESH_REUSE_GRACE_MS = 30 * SECOND;
 export const TOKEN_REFRESH_MARGIN_MS = 2 * MINUTE;
 export const LOCK_SYNC_MS = 60 * SECOND;
 export const LOCK_REFRESH_MS = 15 * SECOND;

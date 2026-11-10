@@ -17,6 +17,7 @@ import {
   MCP_GRANT_TTL_S,
   MCP_GRANTS_KEPT,
   OAUTH_CODE_TTL_S,
+  REFRESH_REUSE_GRACE_MS,
   RETRY_DELAYS_MS,
   RETRY_JOB_TTL_S,
   TELEGRAM_LINK_TTL_S,
@@ -50,6 +51,7 @@ describe("constants", () => {
     expect(MCP_ACCESS_TTL_S).toBe(60 * 60);
     expect(MCP_GRANT_TTL_S).toBe(30 * DAY);
     expect(MCP_GRANTS_KEPT).toBe(10);
+    expect(REFRESH_REUSE_GRACE_MS).toBe(30_000);
     expect(Math.max(LOCK_SYNC_MS, LOCK_REFRESH_MS)).toBeLessThanOrEqual(60_000);
   });
 

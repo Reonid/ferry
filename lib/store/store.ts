@@ -108,6 +108,17 @@ export interface Store {
   putRefreshToken(hash: string, grantId: string): Promise<void>;
   /** The refresh token's grant ID, once, like takeOAuthCode. */
   takeRefreshToken(hash: string): Promise<string | null>;
+  /** A rotated-out refresh token, kept as long as a connection, to catch a copy. */
+  markRefreshSpent(
+    hash: string,
+    spent: { grantId: string; at: number },
+  ): Promise<void>;
+  getSpentRefresh(
+    hash: string,
+  ): Promise<{ grantId: string; at: number } | null>;
+  /** Which connection a used code made, for as long as codes live. */
+  markCodeSpent(hash: string, grantId: string): Promise<void>;
+  getSpentCode(hash: string): Promise<string | null>;
   deleteAccountData(id: string): Promise<void>;
 }
 
@@ -140,6 +151,8 @@ const k = {
   mcpGrants: (id: string) => `ferry:mcp:grants:${id}`,
   mcpAccess: (hash: string) => `ferry:mcp:access:${hash}`,
   mcpRefresh: (hash: string) => `ferry:mcp:refresh:${hash}`,
+  mcpSpentRefresh: (hash: string) => `ferry:mcp:spent-refresh:${hash}`,
+  mcpSpentCode: (hash: string) => `ferry:mcp:spent-code:${hash}`,
 };
 
 export function createStore(redis: RedisLike, key: Buffer): Store {
@@ -504,6 +517,14 @@ export function createStore(redis: RedisLike, key: Buffer): Store {
         .set(k.mcpRefresh(hash), grantId, { ex: MCP_GRANT_TTL_S })
         .then(() => undefined),
     takeRefreshToken: (hash) => take(k.mcpRefresh(hash)),
+    markRefreshSpent: (hash, spent) =>
+      setJson(k.mcpSpentRefresh(hash), spent, { ex: MCP_GRANT_TTL_S }),
+    getSpentRefresh: (hash) =>
+      getJson<{ grantId: string; at: number }>(k.mcpSpentRefresh(hash)),
+    async markCodeSpent(hash, grantId) {
+      await redis.set(k.mcpSpentCode(hash), grantId, { ex: OAUTH_CODE_TTL_S });
+    },
+    getSpentCode: (hash) => redis.get(k.mcpSpentCode(hash)),
 
     async deleteAccountData(id) {
       const destIds = await redis.smembers(k.dests(id));
@@ -533,11 +554,12 @@ export function createStore(redis: RedisLike, key: Buffer): Store {
       await redis.zrem(k.syncDue, id);
 
       // Alert dedupe keys (ferry:alertkey:*), daily call counters
-      // (ferry:calls:*), Telegram link codes (ferry:tglink:*) and MCP
-      // consent codes (ferry:mcp:code:*) are left to expire on their own
-      // TTLs: they hold only IDs and counts, and cannot be enumerated without
-      // a key scan. A consent code is useless once the account is gone, since
-      // the token request checks that it still exists.
+      // (ferry:calls:*), Telegram link codes (ferry:tglink:*), MCP consent
+      // codes (ferry:mcp:code:*) and spent-token markers
+      // (ferry:mcp:spent-*) are left to expire on their own TTLs: they hold
+      // only IDs, times and counts, and cannot be enumerated without a key
+      // scan. A consent code is useless once the account is gone, since the
+      // token request checks that it still exists.
       await del(
         k.account(id),
         k.tokens(id),
