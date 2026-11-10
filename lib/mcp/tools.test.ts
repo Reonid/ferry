@@ -188,7 +188,7 @@ describe("list_activity", () => {
       posts: {
         excerpt: string;
         publishedAt: string;
-        deliveries: { status: string; link?: string; reason?: string }[];
+        deliveries: { status: string; reason?: string }[];
       }[];
     };
     expect(posts.length).toBeGreaterThan(1);
@@ -201,8 +201,6 @@ describe("list_activity", () => {
       expect(["delivered", "draft_ready", "sending", "needs_you"]).toContain(
         status,
       );
-    for (const link of posts.flatMap((p) => p.deliveries.map((d) => d.link)))
-      if (link !== undefined) expect(link).toMatch(/^https:\/\//);
   });
 
   it("filters by status and limits the count", async () => {
@@ -224,31 +222,52 @@ describe("list_activity", () => {
     expect(one.posts).toHaveLength(1);
   });
 
-  it("links draft deliveries to Ferry's own draft page", async () => {
+  it("leaves out message and draft links, which can carry chat IDs and keys", async () => {
     await store.upsertActivity(ctx.accountId, {
-      groupKey: "g-draft",
-      excerpt: "A post with a draft",
+      groupKey: "g-links",
+      excerpt: "A post with links everywhere",
       source: { service: "bluesky", name: "Ferry Dev" },
       publishedAt: NOW,
       deliveries: [
         {
+          destinationId: "dev-telegram",
+          status: "delivered",
+          at: NOW,
+          // A chat with no username: the link holds the chat's ID.
+          url: "https://t.me/c/1234567890/7",
+        },
+        {
+          destinationId: "dev-discord",
+          status: "delivered",
+          at: NOW,
+          url: "https://discord.com/channels/100000000000000002/100000000000000003/42",
+        },
+        {
           destinationId: "dev-reddit",
           status: "draft_ready",
           at: NOW,
-          // Only the path counts, so a link can't point off Ferry.
-          url: "https://elsewhere.example/d/abc-123",
+          url: "https://ferry.example/d/abc-123",
         },
       ],
     });
-    const { posts } = (await data("list_activity", { limit: 1 })) as {
-      posts: { deliveries: { status: string; link?: string }[] }[];
-    };
-    expect(posts[0]?.deliveries).toEqual([
+    const result = await data("list_activity", { limit: 1 });
+    const text = JSON.stringify(result);
+    for (const leak of ["1234567890", "t.me", "discord.com", "/d/", "abc-123"])
+      expect(text, leak).not.toContain(leak);
+    expect(
+      (result as { posts: { deliveries: unknown[] }[] }).posts[0]?.deliveries,
+    ).toEqual([
       expect.objectContaining({
-        status: "draft_ready",
+        destination: "Ferry Updates",
+        status: "delivered",
+      }),
+      expect.objectContaining({
+        destination: "#announcements",
+        status: "delivered",
+      }),
+      expect.objectContaining({
         destination: "r/SideProject",
-        kind: "reddit",
-        link: `${BASE}/d/abc-123`,
+        status: "draft_ready",
       }),
     ]);
   });
@@ -282,7 +301,7 @@ describe("list_activity", () => {
 });
 
 describe("list_reddit_drafts", () => {
-  it("returns live drafts with links to Reddit and to Ferry", async () => {
+  it("returns live drafts with Reddit's prefilled link", async () => {
     const { drafts } = (await data("list_reddit_drafts")) as {
       drafts: Record<string, unknown>[];
     };
@@ -296,7 +315,6 @@ describe("list_reddit_drafts", () => {
         submitUrl: expect.stringMatching(
           /^https:\/\/www\.reddit\.com\/r\/SideProject\/submit/,
         ),
-        draftPageUrl: expect.stringMatching(/^https:\/\/ferry\.example\/d\//),
       });
       for (const image of draft.images as { url: string }[])
         expect(image.url).toMatch(/^https:\/\//);
@@ -323,8 +341,11 @@ describe("what never leaves Ferry", () => {
       "dev-webhook-token-not-real",
       "100000000000000001",
       "-1001234567890",
+      "1234567890",
       "dev-access-token",
       "dev-refresh-token",
+      // The draft's link token: its page opens for anyone who has it.
+      "dev-draft",
       ctx.accountId,
     ];
     for (const { definition } of server.tools) {

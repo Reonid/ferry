@@ -2,7 +2,6 @@ import packageJson from "@/package.json";
 import { ACTIVITY_LIMIT, ALERTS_KEPT, DRAFT_TTL_S } from "../constants";
 import {
   channelName,
-  deliveryHref,
   destinationName,
   excerptText,
   syncMode,
@@ -24,7 +23,7 @@ import type { McpServer, McpTool, ToolOutcome } from "./protocol";
 /**
  * Ferry's MCP tools. All three only read, and they answer in the
  * dashboard's own words. Fields are built one by one, so no webhook, token,
- * chat ID or account ID can reach an AI app.
+ * chat ID, draft link or account ID can reach an AI app.
  */
 
 export interface FerryToolContext {
@@ -290,24 +289,19 @@ const getOverview: Tool = {
 
 // ---------------------------------------------------------------- activity
 
-function deliveries(
-  entry: ActivityEntry,
-  destinations: Destination[],
-  baseUrl: string,
-) {
-  return entry.deliveries.map((d) => {
-    const href = deliveryHref(d);
-    const link = href === null ? null : absolute(href, baseUrl);
-    return {
-      destinationId: d.destinationId,
-      destination: destinationName(d.destinationId, destinations),
-      kind: destinations.find((x) => x.id === d.destinationId)?.kind ?? null,
-      status: PUBLIC_STATUS[d.status],
-      at: iso(d.at),
-      ...(link ? { link } : {}),
-      ...(d.reason ? { reason: d.reason } : {}),
-    };
-  });
+/**
+ * Each delivery in words. No message link: a Telegram link to a chat with
+ * no username carries the chat's ID, and a draft's link is its only key.
+ */
+function deliveries(entry: ActivityEntry, destinations: Destination[]) {
+  return entry.deliveries.map((d) => ({
+    destinationId: d.destinationId,
+    destination: destinationName(d.destinationId, destinations),
+    kind: destinations.find((x) => x.id === d.destinationId)?.kind ?? null,
+    status: PUBLIC_STATUS[d.status],
+    at: iso(d.at),
+    ...(d.reason ? { reason: d.reason } : {}),
+  }));
 }
 
 const listActivity: Tool = {
@@ -315,7 +309,7 @@ const listActivity: Tool = {
     name: "list_activity",
     title: "Recent activity",
     description:
-      "Use this to find out whether a post arrived, or what Ferry carried recently. Returns up to 50 recent posts, newest first, from the last 30 days. Each has its first 80 characters (all Ferry keeps), the Buffer channel it came from, when Buffer published it, and its status at each destination (delivered, draft_ready, sending or needs_you), with a reason or a link where there is one. Filter by status to find the posts that need the owner.",
+      "Use this to find out whether a post arrived, or what Ferry carried recently. Returns up to 50 recent posts, newest first, from the last 30 days. Each has its first 80 characters (all Ferry keeps), the Buffer channel it came from, when Buffer published it, and its status at each destination (delivered, draft_ready, sending or needs_you), with the reason when it needs the owner. Filter by status to find the posts that need the owner; the dashboard links to each message.",
     inputSchema: {
       type: "object",
       properties: {
@@ -353,17 +347,12 @@ const listActivity: Tool = {
                 kind: kindOrNull,
                 status: { type: "string", enum: STATUSES },
                 at: time,
-                link: {
-                  ...text,
-                  description:
-                    "The Discord or Telegram message, or Ferry's page for a Reddit draft.",
-                },
                 reason: {
                   ...text,
                   description: "Why the delivery needs the owner.",
                 },
               },
-              ["link", "reason"],
+              ["reason"],
             ),
           ),
         }),
@@ -371,7 +360,7 @@ const listActivity: Tool = {
     }),
     ...readOnly("Recent activity"),
   },
-  async run(args, { store, accountId, baseUrl }) {
+  async run(args, { store, accountId }) {
     const wrong = unknownArgs(args, ["status", "limit"]);
     if (wrong) return fail(wrong);
     const status = args.status;
@@ -398,7 +387,7 @@ const listActivity: Tool = {
           channel: e.source.name,
         },
         publishedAt: iso(e.publishedAt),
-        deliveries: deliveries(e, destinations, baseUrl),
+        deliveries: deliveries(e, destinations),
       }));
     return { ok: true, data: { posts } };
   },
@@ -424,7 +413,6 @@ function publicDraft(d: RedditDraft, base: string) {
     url: d.url,
     images: draftImages(d.images, base),
     submitUrl: d.submitUrl,
-    draftPageUrl: `${base}/d/${d.token}`,
     createdAt: iso(d.createdAt),
     expiresAt: iso(d.createdAt + DRAFT_TTL_S * 1000),
   };
@@ -435,7 +423,7 @@ const listRedditDrafts: Tool = {
     name: "list_reddit_drafts",
     title: "Reddit drafts",
     description:
-      "Use this to see or improve the Reddit drafts Ferry prepared from published Buffer posts. Returns the drafts of the last 7 days, newest first: subreddit, title, body, link, images, a link that opens Reddit's submit form filled in, and Ferry's draft page. Ferry never posts to Reddit. The owner submits each draft, so suggest changes for them to paste.",
+      "Use this to see or improve the Reddit drafts Ferry prepared from published Buffer posts. Returns the drafts of the last 7 days, newest first: subreddit, title, body, link, images, and a link that opens Reddit's submit form filled in. Ferry never posts to Reddit. The owner submits each draft, so suggest changes for them to paste.",
     inputSchema: {
       type: "object",
       properties: {
@@ -471,7 +459,6 @@ const listRedditDrafts: Tool = {
             description:
               "Reddit's submit page for the subreddit, filled in with this draft.",
           },
-          draftPageUrl: text,
           createdAt: time,
           expiresAt: time,
         }),
