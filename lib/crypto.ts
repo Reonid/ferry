@@ -1,6 +1,8 @@
 import {
   createCipheriv,
   createDecipheriv,
+  createHash,
+  hkdfSync,
   randomBytes,
   randomUUID,
 } from "node:crypto";
@@ -59,4 +61,19 @@ export function newId(): string {
 
 export function newToken(): string {
   return randomBytes(16).toString("base64url");
+}
+
+/** 256 random bits, base64url: for credentials Ferry hands out. */
+export function newSecret(): string {
+  return randomBytes(32).toString("base64url");
+}
+
+/** A 32-byte key for one purpose, derived from `key`, so one secret never does two jobs. */
+export function deriveKey(key: Buffer, purpose: string): Buffer {
+  return Buffer.from(hkdfSync("sha256", key, "ferry", purpose, 32));
+}
+
+/** SHA-256 as base64url. Credentials are kept by this hash, so a copy of the database can't use them. */
+export function hashSecret(value: string): string {
+  return createHash("sha256").update(value, "utf8").digest("base64url");
 }
