@@ -1,0 +1,81 @@
+/* Always mounted as a live region; it only takes space when it has news. */
+.banners {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.banners:not(:empty) {
+  margin-block-end: var(--space-lg);
+}
+
+/* News is a card of its own: a soft edge, plain words. */
+.banner {
+  padding: var(--space-sm) var(--space-lg);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  font-weight: 500;
+}
+
+.banner a {
+  color: var(--color-accent);
+}
+
+/* A problem is tinted, never a siren. */
+.problem {
+  border-color: transparent;
+  background: var(--bad-bg);
+  color: var(--bad-ink);
+}
+
+.problem a {
+  color: var(--color-ink);
+}
+
+/* Needs attention: first on the page and the one box tinted, but no
+   bigger than its news. */
+.alerts {
+  display: grid;
+  gap: var(--space-2xs);
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-card);
+  background: var(--bad-bg);
+}
+
+.title {
+  color: var(--bad-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.list {
+  display: grid;
+  list-style: none;
+}
+
+.alert {
+  display: grid;
+  gap: var(--space-3xs);
+  padding-block: var(--space-xs);
+}
+
+.alert + .alert {
+  border-block-start: 1px solid
+    color-mix(in oklab, var(--bad-ink) 20%, transparent);
+}
+
+.alert a {
+  color: var(--color-ink);
+  font-weight: 500;
+}
+
+.when {
+  color: var(--color-ink-2);
+  font-size: var(--text-sm);
+}
+
+.alerts details {
+  padding-block-start: var(--space-xs);
+}

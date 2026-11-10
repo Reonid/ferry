@@ -1,0 +1,21 @@
+/* Activity: one line a post, newest first, ruled apart rather than boxed.
+   Each line's look is app/components/PostTicket.module.css. */
+.list {
+  display: grid;
+  list-style: none;
+}
+
+.list > li + li {
+  border-block-start: 1px solid var(--color-rule);
+}
+
+.retry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.empty {
+  color: var(--color-muted);
+}

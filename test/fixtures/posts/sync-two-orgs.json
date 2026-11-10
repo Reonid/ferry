@@ -1,0 +1,131 @@
+{
+  "r0": {
+    "edges": [
+      {
+        "node": {
+          "id": "a1",
+          "status": "sent",
+          "text": "one",
+          "dueAt": "2026-11-01T09:00:00.000Z",
+          "sentAt": "2026-11-01T09:00:01.000Z",
+          "channelId": "ch-a",
+          "channelService": "twitter",
+          "tags": [],
+          "assets": [],
+          "metadata": { "thread": [] }
+        }
+      },
+      {
+        "node": {
+          "id": "a2",
+          "status": "scheduled",
+          "text": "not yet",
+          "channelId": "ch-a",
+          "channelService": "twitter"
+        }
+      },
+      {
+        "node": {
+          "id": "a3",
+          "status": "error",
+          "text": "two",
+          "channelId": "ch-a",
+          "channelService": "twitter",
+          "error": { "message": "boom", "supportUrl": null },
+          "tags": [],
+          "assets": []
+        }
+      }
+    ]
+  },
+  "u0": {
+    "edges": [
+      {
+        "node": {
+          "id": "u1",
+          "channelId": "ch-a",
+          "dueAt": "2026-11-06T09:00:00.000Z",
+          "status": "scheduled"
+        }
+      }
+    ]
+  },
+  "c0": [
+    {
+      "id": "ch-a",
+      "organizationId": "org-1",
+      "service": "twitter",
+      "name": "leon",
+      "displayName": "Leon",
+      "avatar": "https://img.example/a.png",
+      "isDisconnected": false,
+      "isQueuePaused": false,
+      "isLocked": false
+    },
+    {
+      "id": "ch-b",
+      "organizationId": "org-1",
+      "service": "bluesky",
+      "name": "leon.bsky.social",
+      "displayName": null,
+      "avatar": "https://img.example/b.png",
+      "isDisconnected": false,
+      "isQueuePaused": true,
+      "isLocked": false
+    }
+  ],
+  "r1": {
+    "edges": [
+      {
+        "node": {
+          "id": "b1",
+          "status": "sent",
+          "text": "three",
+          "dueAt": "2026-11-02T09:00:00.000Z",
+          "sentAt": "2026-11-02T09:00:01.000Z",
+          "channelId": "ch-c",
+          "channelService": "linkedin",
+          "tags": [],
+          "assets": [],
+          "metadata": { "linkAttachment": null }
+        }
+      }
+    ]
+  },
+  "u1": {
+    "edges": [
+      {
+        "node": {
+          "id": "u2",
+          "channelId": "ch-c",
+          "dueAt": "2026-11-07T09:00:00.000Z",
+          "status": "sending"
+        }
+      }
+    ]
+  },
+  "c1": [
+    {
+      "id": "ch-c",
+      "organizationId": "org-2",
+      "service": "linkedin",
+      "name": "Leon L",
+      "displayName": null,
+      "avatar": "https://img.example/c.png",
+      "isDisconnected": false,
+      "isQueuePaused": false,
+      "isLocked": false
+    },
+    {
+      "id": "ch-d",
+      "organizationId": "org-2",
+      "service": "instagram",
+      "name": "leon.ig",
+      "displayName": null,
+      "avatar": "https://img.example/d.png",
+      "isDisconnected": true,
+      "isQueuePaused": false,
+      "isLocked": true
+    }
+  ]
+}

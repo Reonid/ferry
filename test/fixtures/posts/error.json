@@ -1,0 +1,28 @@
+{
+  "r0": {
+    "edges": [
+      {
+        "node": {
+          "id": "p-err-1",
+          "status": "error",
+          "text": "This one failed",
+          "dueAt": "2026-11-04T12:00:00.000Z",
+          "sentAt": null,
+          "channelId": "ch-tw",
+          "channelService": "twitter",
+          "contentItemId": null,
+          "externalLink": null,
+          "tags": [],
+          "error": {
+            "message": "Your Twitter connection expired",
+            "supportUrl": "https://support.buffer.com/reconnect"
+          },
+          "assets": [],
+          "metadata": { "thread": [] }
+        }
+      }
+    ]
+  },
+  "u0": { "edges": [] },
+  "c0": []
+}

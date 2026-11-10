@@ -1,0 +1,33 @@
+{
+  "r0": {
+    "edges": [
+      {
+        "node": {
+          "id": "p-bs-1",
+          "status": "sent",
+          "text": "New write-up",
+          "dueAt": "2026-11-02T10:00:00.000Z",
+          "sentAt": "2026-11-02T10:00:02.000Z",
+          "channelId": "ch-bs",
+          "channelService": "bluesky",
+          "contentItemId": "ci-1",
+          "externalLink": "https://bsky.app/profile/leon/post/1",
+          "tags": [],
+          "error": null,
+          "assets": [],
+          "metadata": {
+            "thread": [{ "text": "New write-up", "assets": [] }],
+            "linkAttachment": {
+              "url": "https://example.com/post",
+              "title": "A post",
+              "text": "About ferries",
+              "thumbnail": "https://example.com/t.png"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "u0": { "edges": [] },
+  "c0": []
+}

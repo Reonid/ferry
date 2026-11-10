@@ -1,0 +1,142 @@
+/* The destinations: one line each, opening to Rename and Remove. The line
+   itself is ui.module.css's .row; this file adds the icon and the panel. */
+.list {
+  display: grid;
+  list-style: none;
+}
+
+.item + .item {
+  border-block-start: 1px solid var(--color-rule);
+}
+
+.summary {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+/* What kind of place it is, at a glance; the line under the name says it. */
+.icon {
+  display: grid;
+  place-items: center;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  border-radius: var(--radius-input);
+  background: var(--color-paper-2);
+  color: var(--color-ink);
+}
+
+.icon svg {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+}
+
+/* Each network in its own hue, as on the landing. */
+.discord {
+  background: var(--tint-discord);
+  color: var(--color-ink-2);
+}
+
+.telegram {
+  background: var(--tint-telegram);
+  color: var(--color-ink-2);
+}
+
+.reddit {
+  background: var(--tint-reddit);
+  color: var(--color-ink-2);
+}
+
+.isBroken .icon {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.what {
+  display: grid;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.name {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.kind {
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+
+.broken {
+  margin-block-start: var(--space-2xs);
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+}
+
+/* What an open line shows, lined up under its name. */
+.panel {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-md);
+  padding: var(--space-2xs) 0 var(--space-md)
+    calc(2.5rem + var(--space-sm) + var(--space-xs));
+}
+
+.panel > form {
+  inline-size: 100%;
+  max-inline-size: 30rem;
+}
+
+@media (max-width: 479px) {
+  .panel {
+    padding-inline-start: 0;
+  }
+}
+
+/* Remove and what it costs, on one line; the quiet button's text lines up
+   with the field above it. */
+.remove {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2xs) var(--space-xs);
+}
+
+.remove > button {
+  margin-inline-start: calc(-1 * var(--space-sm));
+}
+
+/* Wide enough for the cost to sit beside the button. */
+.panel > .remove {
+  max-inline-size: 40rem;
+}
+
+/* The ways to add a place, in a well under the button that opens them. */
+.add {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-md);
+  margin-block-start: var(--space-sm);
+  padding: var(--space-lg);
+  border-radius: var(--radius-card);
+  background: var(--color-paper-2);
+}
+
+.add > form {
+  inline-size: 100%;
+  max-inline-size: 30rem;
+}
+
+.buttonIcon {
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+}
+
+.inline {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.inline input {
+  flex: 1;
+  min-width: 0;
+}
