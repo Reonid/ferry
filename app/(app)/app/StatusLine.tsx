@@ -1,21 +1,7 @@
-import { plural, relativeTime } from "@/lib/dashboard/view";
-import type { Route } from "@/lib/types";
+import { plural, relativeTime, type SyncMode } from "@/lib/dashboard/view";
 import styles from "./StatusLine.module.css";
 
-/**
- * Whether Ferry is checking Buffer for this account: it is when a route is
- * running and Buffer still lets it in.
- */
-export type SyncMode = "live" | "paused" | "empty" | "reauth";
-
-export function syncMode(
-  routes: Route[],
-  accountStatus: "active" | "needs_reauth",
-): SyncMode {
-  if (accountStatus === "needs_reauth") return "reauth";
-  if (routes.length === 0) return "empty";
-  return routes.some((r) => !r.paused) ? "live" : "paused";
-}
+export { syncMode, type SyncMode } from "@/lib/dashboard/view";
 
 /** When Ferry next asks Buffer. An overdue check runs on the next tick or poll. */
 function nextCheck(nextRunAt: number | null, now: number): string {
