@@ -1,0 +1,24 @@
+.main {
+  display: grid;
+  align-content: center;
+  min-block-size: 60dvh;
+}
+
+.lost {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-md);
+  max-inline-size: 36rem;
+}
+
+.text {
+  color: var(--color-ink-2);
+  font-size: var(--text-lead);
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-block-start: var(--space-xs);
+}

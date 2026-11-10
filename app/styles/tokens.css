@@ -1,0 +1,266 @@
+/*
+ * Ferry's tokens, for the landing and the app alike.
+ *
+ * Ferry is built to sit beside Buffer, so it follows the same principles
+ * Buffer's own pages do: a warm white page, calm regular-weight heads,
+ * large readable text, soft pill buttons, and the real product shown in
+ * big pastel cards. The look itself is Ferry's: the logo's harbour green
+ * for ink and the footer, its yellow funnel as the one button that
+ * matters, pastel cards tinted by where a post goes, and Onest for type.
+ *
+ * Every colour and face is declared here and nowhere else. Text pairings
+ * pass WCAG AA in both schemes (checked numerically: ink on paper 15.8:1,
+ * muted on paper 5.8:1, the yellow button 10.4:1, field edges 3:1).
+ */
+:root {
+  color-scheme: light dark;
+
+  /* Space: one scale, 2 to 144px. */
+  --space-3xs: 2px;
+  --space-2xs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 40px;
+  --space-2xl: 64px;
+  --space-3xl: 96px;
+  --space-4xl: 144px;
+
+  /* Type: a calm scale on an 18px reading size; heads grow with the screen. */
+  --text-xs: 0.8125rem;
+  --text-sm: 0.9375rem;
+  --text-md: 1.0625rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 1.953rem;
+  --text-3xl: 2.441rem;
+  --text-body: 1.125rem;
+  --text-display-s: clamp(2.25rem, 3vw + 1rem, 3.5rem);
+  --text-display: clamp(2.6rem, 4vw + 1.25rem, 4.5rem);
+  --text-section: clamp(2rem, 2.2vw + 1rem, 3.125rem);
+  --text-title: clamp(1.25rem, 0.6vw + 1rem, 1.5rem);
+  --text-lead: clamp(1.125rem, 0.4vw + 1rem, 1.3125rem);
+
+  /* One family, Onest, from its quiet 400 to a 500 for emphasis. */
+  --font-display: var(--font-onest), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-onest), ui-sans-serif, system-ui, sans-serif;
+  /* For codes, scopes and channel names that are typed exactly. */
+  --font-outlier: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --tracking-display: -0.025em;
+  --display-weight: 400;
+
+  /* Motion. */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  /* A boat's speed along its lane: easing in and out of port. */
+  --ease-sail: cubic-bezier(0.45, 0, 0.55, 1);
+  --dur-micro: 120ms;
+  --dur-short: 220ms;
+  --dur-long: 420ms;
+
+  /* The canvas. */
+  --container: 1280px;
+  --container-app: 1240px;
+  --gutter: 48px;
+  --gutter-app: 32px;
+  --gap-columns: 32px;
+  --section-gap-s: 96px;
+  --section-gap: 128px;
+  --section-gap-l: 160px;
+  --measure: 65ch;
+  --nav-h: 72px;
+
+  --z-base: 1;
+  --z-raised: 10;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-sticky-nav: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+  --z-tooltip: 600;
+
+  /* Paper and ink. */
+  --color-paper: #fcfbf7;
+  --color-paper-2: #f4f1e8;
+  --color-paper-3: #ebe7db;
+  /* Cards and fields on the paper. */
+  --color-surface: #ffffff;
+  --color-ink: #10231d;
+  --color-ink-2: #33433d;
+  --color-muted: #5b6660;
+  --color-rule: #e7e2d5;
+  /* Field edges and marks: 3:1 on paper and surface. */
+  --color-rule-strong: #7f8882;
+
+  /* The green that marks links, checks and the map's lanes. */
+  --color-accent: #1d6b4e;
+  --color-accent-deep: #14513b;
+  --color-accent-soft: #dcf1e3;
+  --color-accent-ink: #ffffff;
+  --color-focus: #1d6b4e;
+
+  /* The logo's yellow funnel: the one button that matters. */
+  --color-yellow: #f5c935;
+  --color-yellow-hover: #ecbd1c;
+  --color-on-yellow: #10231d;
+
+  /* The livery: the logo's harbour green, for the footer and dark bands. */
+  --color-harbour: #0c3b2e;
+  --color-harbour-2: #134a3a;
+  --color-on-harbour: #f3f7f4;
+  --color-harbour-muted: #b4cdc1;
+  --color-mint: #b9e8cb;
+
+  /* Only for what can't be undone, and for a field that needs fixing. */
+  --color-danger: #b3361f;
+  --color-danger-soft: #fde3dc;
+
+  /* Pastel cards, one per place a post goes. Never a state. */
+  --tint-buffer: #fbeec2;
+  --tint-ferry: #d8eedd;
+  --tint-discord: #e5e0ff;
+  --tint-telegram: #d8ebfa;
+  --tint-reddit: #ffe1d4;
+
+  /* Delivery states: soft tinted pills, each with its own words. */
+  --ok-bg: #dcf1e3;
+  --ok-ink: #14593f;
+  --wait-bg: #eeece4;
+  --wait-ink: #525b56;
+  --draft-bg: #fbefc6;
+  --draft-ink: #6a5208;
+  --bad-bg: #fde3dc;
+  --bad-ink: #9b2f1d;
+
+  /* The logo tile: the same in both schemes, like any app icon. */
+  --logo-ground: #0c3b2e;
+  --logo-ship: #ffffff;
+  --logo-funnel: #f5c935;
+
+  /* The crossing map: Buffer's shore in butter, the places' in mint. */
+  --map-water: #ffffff;
+  --map-grid: #f0ede4;
+  --map-shelf: #f6f3ea;
+  --map-shallow: #eef6ef;
+  --map-contour: #c9dccf;
+  --map-land-buffer: #fbeec2;
+  --map-land-places: #d8eedd;
+  --map-coast: #9cb8a8;
+  --map-coast-buffer: #e2c66a;
+
+  /* Radii: soft, like a friendly app. */
+  --radius-xs: 6px;
+  --radius-input: 12px;
+  --radius-card: 16px;
+  --radius-panel: 32px;
+  --radius-pill: 999px;
+
+  --shadow-card:
+    0 1px 2px rgb(16 35 29 / 0.06), 0 12px 32px -12px rgb(16 35 29 / 0.18);
+  --shadow-lift:
+    0 1px 2px rgb(16 35 29 / 0.08), 0 24px 48px -20px rgb(16 35 29 / 0.28);
+
+  /*
+   * Other apps' own colours, only for the previews that show a post the
+   * way Discord and Telegram show it. They keep each app's look in both
+   * schemes, as those apps do in their dark themes.
+   */
+  --discord-bg: #313338;
+  --discord-head: #2b2d31;
+  --discord-text: #dbdee1;
+  --discord-strong: #f2f3f5;
+  --discord-muted: #9ba2ab;
+  --discord-tag: #5865f2;
+  --discord-on-tag: #ffffff;
+  --discord-button: #4e5058;
+  --discord-input: #1e1f22;
+  --telegram-bg: #8bb4c9;
+  --telegram-head: #ffffff;
+  --telegram-bubble: #ffffff;
+  --telegram-text: #0f1419;
+  --telegram-muted: #5b6b77;
+  --telegram-link: #1f6fb0;
+  --telegram-button: #3f6e8c;
+  --telegram-on-button: #ffffff;
+}
+
+/* Night: the same system on a green-black ground. Cards get lighter, the
+   pastels deepen, and the yellow stays the yellow. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-paper: #111a17;
+    --color-paper-2: #17211d;
+    --color-paper-3: #1e2a25;
+    --color-surface: #1b2521;
+    --color-ink: #eef2ee;
+    --color-ink-2: #cfd8d2;
+    --color-muted: #a3afa8;
+    --color-rule: #2a3631;
+    --color-rule-strong: #6c7a73;
+
+    --color-accent: #7fd3a9;
+    --color-accent-deep: #63b98e;
+    --color-accent-soft: #183527;
+    --color-accent-ink: #10231d;
+    --color-focus: #7fd3a9;
+
+    --color-harbour: #0a2a21;
+    --color-harbour-2: #123a2e;
+    --color-on-harbour: #f1f6f3;
+    --color-harbour-muted: #a9c4b8;
+
+    --color-danger: #ff9f8a;
+    --color-danger-soft: #3d211b;
+
+    --tint-buffer: #352f19;
+    --tint-ferry: #1c3328;
+    --tint-discord: #2a2744;
+    --tint-telegram: #1c2f3d;
+    --tint-reddit: #3b2620;
+
+    --ok-bg: #183527;
+    --ok-ink: #8fdcb5;
+    --wait-bg: #232d29;
+    --wait-ink: #b9c4be;
+    --draft-bg: #3a3118;
+    --draft-ink: #f2d47a;
+    --bad-bg: #3d211b;
+    --bad-ink: #ffab98;
+
+    --map-water: #141e1a;
+    --map-grid: #1e2a25;
+    --map-shelf: #17221e;
+    --map-shallow: #1a2a22;
+    --map-contour: #2f4a3d;
+    --map-land-buffer: #2c2716;
+    --map-land-places: #1c3328;
+    --map-coast: #4f7363;
+    --map-coast-buffer: #c9a948;
+
+    --shadow-card: 0 0 0 1px #2a3631;
+    --shadow-lift: 0 0 0 1px #2f3c36;
+  }
+}
+
+@media (max-width: 60rem) {
+  :root {
+    --gutter: 24px;
+    --gutter-app: 24px;
+    --section-gap-s: 72px;
+    --section-gap: 96px;
+    --section-gap-l: 112px;
+  }
+}
+
+@media (max-width: 40rem) {
+  :root {
+    --gutter: 16px;
+    --gutter-app: 16px;
+    --section-gap-s: 56px;
+    --section-gap: 72px;
+    --section-gap-l: 88px;
+    --gap-columns: 16px;
+  }
+}

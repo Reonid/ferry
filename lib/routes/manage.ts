@@ -350,7 +350,7 @@ export async function sendLatestPost(
   });
   return status === "delivered" || status === "draft_ready"
     ? { ok: true, message: "Sent your latest post." }
-    : fail("That didn't go through. Check the activity below.");
+    : fail("That didn't go through. Activity has the details.");
 }
 
 export async function retryJob(

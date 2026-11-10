@@ -2,9 +2,6 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { tabTo } from "./keyboard";
 
-const TIMING_NOTE =
-  "Ferry checks Buffer about once a minute while this page is open, and every 15 minutes to 2 hours otherwise. Posts it already knows about cross within about 3 minutes of going out.";
-
 /** Signs in as the seeded account and waits until the dashboard is hydrated. */
 async function openDashboard(page: Page): Promise<void> {
   // The first live poll starts from an effect, so it only runs once React
@@ -96,16 +93,21 @@ test("shows the seeded routes in the map and the list", async ({ page }) => {
     .getByRole("listitem")
     .filter({ hasText: "Bluesky, LinkedIn → #announcements" });
   await expect(route).toBeVisible();
-  for (const name of ["Pause", "Send my latest post", "Delete"]) {
+  await expect(route.getByText("Running", { exact: true })).toBeVisible();
+  // Each route is one line, and the line opens to its controls.
+  const controls = ["Pause", "Send my latest post", "Delete route"];
+  for (const name of controls)
+    await expect(route.getByRole("button", { name })).toBeHidden();
+  await route.locator("summary").click();
+  for (const name of controls)
     await expect(route.getByRole("button", { name })).toBeVisible();
-  }
   await expect(
     routes.getByRole("listitem").filter({ hasText: "Bluesky → Ferry Updates" }),
   ).toBeVisible();
-  await expect(routes.getByText(TIMING_NOTE, { exact: true })).toBeVisible();
-  await expect(
-    page.getByText(/^2 routes running · Next check .+ · \d+ API calls? today$/),
-  ).toBeVisible();
+  // How Ferry is doing, in one line beside the heading.
+  await expect(routes.locator("[data-sync-line]")).toHaveText(
+    /^(Checking now|Next check .+|No check scheduled) · \d+ Buffer API calls? today$/,
+  );
 });
 
 test("passes axe in light and dark", async ({ page }) => {
@@ -140,6 +142,13 @@ test("reaches every control by keyboard", async ({ page }) => {
   await openDashboard(page);
 
   const routes = page.getByRole("region", { name: "Routes" });
+  const route = routes
+    .getByRole("listitem")
+    .filter({ hasText: "Bluesky, LinkedIn → #announcements" });
+  await tabTo(page, route.locator("summary"));
+  await page.keyboard.press("Enter");
+  for (const name of ["Pause", "Send my latest post", "Delete route"])
+    await tabTo(page, route.getByRole("button", { name }));
   await tabTo(page, routes.getByText("New route", { exact: true }));
   await page.keyboard.press("Enter");
   await tabTo(
@@ -150,17 +159,42 @@ test("reaches every control by keyboard", async ({ page }) => {
   await tabTo(page, routes.getByRole("textbox", { name: "Only posts tagged" }));
   await tabTo(page, routes.getByRole("button", { name: "Add route" }));
 
-  await tabTo(
-    page,
-    page.getByRole("link", { name: "Connect a Discord channel" }),
-  );
-  await tabTo(page, page.getByRole("button", { name: "Connect Telegram" }));
-
   const activity = page.getByRole("region", { name: "Activity" });
   await tabTo(page, activity.getByRole("button", { name: "Retry" }));
 
+  const destinations = page.getByRole("region", { name: "Destinations" });
+  const discord = destinations
+    .getByRole("listitem")
+    .filter({ hasText: "#announcements" });
+  await tabTo(page, discord.locator("summary"));
+  await page.keyboard.press("Enter");
+  await tabTo(page, discord.getByRole("textbox", { name: "Name" }));
+  await tabTo(page, discord.getByRole("button", { name: "Save name" }));
+  await tabTo(
+    page,
+    discord.getByRole("button", { name: "Remove #announcements" }),
+  );
+  await tabTo(
+    page,
+    destinations.getByText("Add a destination", { exact: true }),
+  );
+  await page.keyboard.press("Enter");
+  await tabTo(
+    page,
+    destinations.getByRole("link", { name: "Connect a Discord channel" }),
+  );
+  await tabTo(
+    page,
+    destinations.getByRole("button", { name: "Connect Telegram" }),
+  );
+  await tabTo(
+    page,
+    destinations.getByRole("textbox", { name: "Add a subreddit" }),
+  );
+
   const settings = page.getByRole("region", { name: "Settings" });
   await tabTo(page, settings.getByRole("combobox", { name: /alerts/i }));
+  await tabTo(page, settings.getByRole("button", { name: "Save" }));
   await tabTo(
     page,
     settings.getByRole("button", { name: "Get alerts in a Telegram DM" }),
@@ -205,7 +239,8 @@ test("keeps focus in the routes section after deleting a route", async ({
     .getByRole("listitem")
     .filter({ hasText: "Bluesky, LinkedIn → #announcements" });
 
-  await route.getByRole("button", { name: "Delete" }).focus();
+  await route.locator("summary").click();
+  await route.getByRole("button", { name: "Delete route" }).focus();
   await page.keyboard.press("Enter");
 
   await expect(route).toHaveCount(0);
@@ -222,7 +257,7 @@ test("keeps focus in destinations after removing one", async ({ page }) => {
     .getByRole("listitem")
     .filter({ hasText: "r/SideProject" });
 
-  await reddit.getByText("Remove", { exact: true }).click();
+  await reddit.locator("summary").click();
   await reddit.getByRole("button", { name: "Remove r/SideProject" }).click();
 
   await expect(reddit).toHaveCount(0);

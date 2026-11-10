@@ -1,0 +1,205 @@
+/* The routes under the map: one line each, opening to their controls. The
+   line itself is ui.module.css's .row; this file adds the lane and state. */
+.list {
+  display: grid;
+  list-style: none;
+}
+
+.route + .route {
+  border-block-start: 1px solid var(--color-rule);
+}
+
+.summary {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+}
+
+/* The route's lane, drawn as the map draws it. */
+.lane {
+  inline-size: 1.75rem;
+  block-size: 0.5rem;
+  overflow: visible;
+}
+
+.lane path {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 2.25;
+  stroke-dasharray: 5 3.5;
+  stroke-linecap: round;
+}
+
+.paused .lane path {
+  stroke: var(--color-muted);
+  stroke-dasharray: 0.5 4.5;
+}
+
+.what {
+  display: grid;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.name {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.paused .name {
+  color: var(--color-muted);
+}
+
+.meta {
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+
+.problem {
+  color: var(--color-danger);
+}
+
+/* A Buffer tag the route filters on, as a soft chip. */
+.tag {
+  display: inline-block;
+  padding: 0 var(--space-xs);
+  border-radius: var(--radius-pill);
+  background: var(--tint-ferry);
+  color: var(--color-ink);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  line-height: 1.7;
+}
+
+/* The route's state as a soft pill: green while it runs, grey while
+   paused, red when its destination is broken. */
+.state {
+  padding: var(--space-3xs) var(--space-sm);
+  border-radius: var(--radius-pill);
+  background: var(--ok-bg);
+  color: var(--ok-ink);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.paused .state {
+  background: var(--wait-bg);
+  color: var(--wait-ink);
+}
+
+/* After .paused: a broken destination pauses its routes too. */
+.broken .lane path {
+  stroke: var(--color-danger);
+  stroke-dasharray: 0.5 4.5;
+}
+
+.broken .state {
+  background: var(--bad-bg);
+  color: var(--bad-ink);
+}
+
+/* The controls an open line shows, lined up under its words. */
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-2xs) 0 var(--space-md)
+    calc(1.75rem + var(--space-sm) + var(--space-xs));
+}
+
+/* Delete stands apart from the everyday tools, at the far end. */
+.end {
+  margin-inline-start: auto;
+}
+
+.result {
+  padding-inline-start: calc(1.75rem + var(--space-sm) + var(--space-xs));
+  padding-block-end: var(--space-sm);
+}
+
+@media (max-width: 479px) {
+  /* On a phone the state goes under the words, so they keep the width. */
+  .summary {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .state {
+    grid-area: 2 / 2;
+    justify-self: start;
+  }
+
+  .tools,
+  .result {
+    padding-inline-start: 0;
+  }
+}
+
+/* An empty state framed like a lane still to be drawn. */
+.empty {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  border: 1.5px dashed var(--color-rule-strong);
+  border-radius: var(--radius-card);
+  background: var(--color-paper-2);
+}
+
+.create {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.form {
+  display: grid;
+  gap: var(--space-lg);
+  margin-block-start: var(--space-sm);
+  padding: var(--space-lg);
+  border-radius: var(--radius-card);
+  background: var(--color-paper-2);
+}
+
+.channels {
+  display: grid;
+  gap: var(--space-xs);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.channels legend {
+  padding: 0;
+  margin-bottom: var(--space-2xs);
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-block-size: 44px;
+  padding: 0 var(--space-sm);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-input);
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.check:hover {
+  border-color: var(--color-rule-strong);
+}
+
+.check:has(input:checked) {
+  border-color: var(--color-accent);
+  background: color-mix(
+    in oklab,
+    var(--color-accent-soft) 50%,
+    var(--color-surface)
+  );
+}
+
+.check input {
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+  margin: 0;
+}

@@ -1,0 +1,203 @@
+/*
+ * How it works: three numbered steps side by side, each with what it
+ * looks like in Ferry, small, in a white card under its words.
+ */
+.head {
+  max-inline-size: 16ch;
+  margin-block-end: var(--space-2xl);
+  font-size: var(--text-section);
+}
+
+/*
+ * A real ordered list; its numbers drawn from the counter in soft discs.
+ * Each step spans the list's three rows (number, words, card) as a
+ * subgrid, so the three cards share one row: one top edge, one height.
+ */
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-sm) var(--gap-columns);
+  list-style: none;
+  counter-reset: step;
+}
+
+.step {
+  counter-increment: step;
+  display: grid;
+  grid-row: span 3;
+  grid-template-rows: subgrid;
+  row-gap: var(--space-sm);
+}
+
+.step::before {
+  content: counter(step);
+  display: grid;
+  place-items: center;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  margin-block-end: var(--space-xs);
+  border-radius: 50%;
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font-size: var(--text-md);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A step's name and words, kept together at the top of their row. */
+.words {
+  display: grid;
+  align-content: start;
+  gap: var(--space-sm);
+}
+
+.stepName {
+  font-size: var(--text-title);
+  font-weight: 500;
+  letter-spacing: -0.015em;
+}
+
+.stepText {
+  color: var(--color-ink-2);
+  font-size: var(--text-body);
+  line-height: 1.5;
+}
+
+/*
+ * Each step's detail: a small white card of three rows, as the dashboard
+ * shows it. The cards stretch to fill their shared row, so all three match.
+ */
+.scopes,
+.places,
+.route {
+  display: grid;
+  align-content: start;
+  gap: var(--space-xs);
+  margin-block-start: var(--space-sm);
+  padding: var(--space-md);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  font-size: var(--text-sm);
+}
+
+.scopes div {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-md);
+  align-items: baseline;
+}
+
+.scopes dd {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.scopes code {
+  color: var(--color-ink);
+}
+
+.places {
+  list-style: none;
+}
+
+.places li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.placeName {
+  min-width: 0;
+  font-weight: 500;
+}
+
+.placeKind {
+  color: var(--color-muted);
+}
+
+/* A route as three short rows, its labels in one column. */
+.route {
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: var(--space-md);
+  align-items: baseline;
+}
+
+.route dt {
+  color: var(--color-muted);
+}
+
+.route dd {
+  margin: 0;
+  font-weight: 500;
+}
+
+.tag {
+  display: inline-block;
+  padding: 0 var(--space-xs);
+  border-radius: var(--radius-pill);
+  background: var(--tint-ferry);
+  color: var(--color-ink);
+  font-weight: 500;
+}
+
+/*
+ * Below 68rem three columns get too narrow for the cards' rows, so each
+ * step becomes a row of its own: its number and words, its card beside.
+ */
+@media (max-width: 68rem) {
+  .head {
+    margin-block-end: var(--space-xl);
+  }
+
+  .steps {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-xl);
+  }
+
+  .step {
+    grid-row: auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto 1fr;
+    column-gap: var(--gap-columns);
+  }
+
+  .scopes,
+  .places,
+  .route {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+    margin-block-start: 0;
+  }
+}
+
+/* On a phone each step stacks: its number, its words, then its card. */
+@media (max-width: 40rem) {
+  .step {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+  }
+
+  .scopes,
+  .places,
+  .route {
+    grid-column: auto;
+    grid-row: auto;
+    align-self: stretch;
+    margin-block-start: var(--space-sm);
+  }
+}
+
+/* On a phone the kind drops under the place's name. */
+@media (max-width: 30rem) {
+  .places li {
+    grid-template-columns: 20px minmax(0, 1fr);
+    row-gap: 0;
+  }
+
+  .placeKind {
+    grid-column: 2;
+  }
+}

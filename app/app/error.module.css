@@ -1,9 +1,0 @@
-.main {
-  inline-size: 100%;
-  max-width: var(--page-max);
-  margin: 0 auto;
-  padding: var(--space-8) var(--gutter);
-  display: grid;
-  gap: var(--space-4);
-  justify-items: start;
-}

@@ -1,0 +1,115 @@
+/*
+ * A post that crossed, as one line of Activity: the post itself, then each
+ * place it reached with a soft status pill. The pills' words carry the
+ * state (Delivered, Draft ready, Sending, Needs you); their tints only
+ * repeat it. On a wide line the places sit to the right of the post.
+ */
+.ticket {
+  container-type: inline-size;
+  padding-block: var(--space-md);
+}
+
+.ticket:first-child {
+  padding-block-start: 0;
+}
+
+.ticket:last-child {
+  padding-block-end: 0;
+}
+
+.layout {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.main {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.excerpt {
+  font-size: var(--text-md);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.source {
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+
+/* Where it went. */
+.stub {
+  display: grid;
+  align-content: start;
+  gap: var(--space-xs);
+  margin: 0;
+  list-style: none;
+}
+
+.delivery {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-sm);
+  font-size: var(--text-sm);
+}
+
+.place {
+  min-inline-size: 8.5rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+/* On a wide line the places move to the right-hand side. */
+@container (min-width: 36rem) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) minmax(15rem, 0.62fr);
+    gap: var(--space-lg);
+  }
+}
+
+.stamp {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-3xs) var(--space-sm);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+a.stamp {
+  text-decoration: none;
+}
+
+a.stamp:hover {
+  text-decoration: underline;
+}
+
+.delivered {
+  background: var(--ok-bg);
+  color: var(--ok-ink);
+}
+
+.draft_ready {
+  background: var(--draft-bg);
+  color: var(--draft-ink);
+}
+
+.pending {
+  background: var(--wait-bg);
+  color: var(--wait-ink);
+}
+
+.failed {
+  background: var(--bad-bg);
+  color: var(--bad-ink);
+}
+
+.reason {
+  color: var(--color-muted);
+}

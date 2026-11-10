@@ -1,0 +1,6 @@
+/*
+ * The landing's document stylesheet: Ferry's tokens and the shared base.
+ * The sections' own styles are CSS modules beside the components.
+ */
+@import url("../styles/tokens.css");
+@import url("../styles/base.css");

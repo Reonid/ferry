@@ -46,6 +46,13 @@ function statusIn(region: Locator): Locator {
   return region.locator('[aria-live="polite"][data-telegram-status]');
 }
 
+/** Opens Destinations' Add a destination, where Connect Telegram lives. */
+async function openAdder(page: Page): Promise<Locator> {
+  const destinations = page.getByRole("region", { name: "Destinations" });
+  await destinations.getByText("Add a destination", { exact: true }).click();
+  return destinations;
+}
+
 /**
  * Resolves once a refresh of the dashboard from the server has fully
  * arrived. Tests that connect wait for it, so no stream outlives the test.
@@ -90,6 +97,11 @@ test("connect panel shows a code and both links", async ({ page, context }) => {
   // The whole panel works from the keyboard, with a visible focus ring.
   await tabTo(
     page,
+    destinations.getByText("Add a destination", { exact: true }),
+  );
+  await page.keyboard.press("Enter");
+  await tabTo(
+    page,
     destinations.getByRole("button", { name: "Connect Telegram" }),
   );
   await page.keyboard.press("Enter");
@@ -128,7 +140,7 @@ test("connect panel shows a code and both links", async ({ page, context }) => {
 test("the group link carries the code", async ({ page }) => {
   const asked = await answerChecks(page);
   await openDashboard(page);
-  const destinations = page.getByRole("region", { name: "Destinations" });
+  const destinations = await openAdder(page);
   await destinations.getByRole("button", { name: "Connect Telegram" }).click();
 
   const field = destinations.getByRole("textbox", { name: "Your code" });
@@ -154,7 +166,7 @@ test("announces the connection politely and moves focus", async ({ page }) => {
     },
   });
   await openDashboard(page);
-  const destinations = page.getByRole("region", { name: "Destinations" });
+  const destinations = await openAdder(page);
   await destinations.getByRole("button", { name: "Connect Telegram" }).click();
   await expect(statusIn(destinations)).toHaveText("Waiting for the code…");
 
@@ -175,7 +187,7 @@ test("announces the connection politely and moves focus", async ({ page }) => {
 test("says when a code expired, and gets a new one", async ({ page }) => {
   const asked = await answerChecks(page, { status: "expired" });
   await openDashboard(page);
-  const destinations = page.getByRole("region", { name: "Destinations" });
+  const destinations = await openAdder(page);
   const connect = destinations.getByRole("button", {
     name: "Connect Telegram",
   });
@@ -201,7 +213,7 @@ test("says when a code expired, and gets a new one", async ({ page }) => {
 test("slows to a check every 15 s after 3 minutes", async ({ page }) => {
   const asked = await answerChecks(page);
   await openOnStoppedClock(page);
-  const destinations = page.getByRole("region", { name: "Destinations" });
+  const destinations = await openAdder(page);
   await destinations.getByRole("button", { name: "Connect Telegram" }).click();
   await expect(
     destinations.getByRole("textbox", { name: "Your code" }),
@@ -235,7 +247,7 @@ test("still connects from a check that came due while away", async ({
     },
   });
   await openOnStoppedClock(page);
-  const destinations = page.getByRole("region", { name: "Destinations" });
+  const destinations = await openAdder(page);
   await destinations.getByRole("button", { name: "Connect Telegram" }).click();
   await expect(
     destinations.getByRole("textbox", { name: "Your code" }),
@@ -252,7 +264,7 @@ test("still connects from a check that came due while away", async ({
 test("stops once the code is past its lifetime", async ({ page }) => {
   const asked = await answerChecks(page);
   await openOnStoppedClock(page);
-  const destinations = page.getByRole("region", { name: "Destinations" });
+  const destinations = await openAdder(page);
   await destinations.getByRole("button", { name: "Connect Telegram" }).click();
   const field = destinations.getByRole("textbox", { name: "Your code" });
   await expect(field).toHaveValue(CODE);
@@ -479,7 +491,7 @@ test("the empty Routes section points at Discord and Telegram", async ({
     page
       .getByRole("region", { name: "Routes" })
       .getByText(
-        "A route carries posts from your Buffer channels to a destination. Connect a Discord channel, or a Telegram channel or group, to draw your first one.",
+        "A route carries posts from your Buffer channels to a destination. Add one first: a Discord channel, a Telegram channel or group, or a subreddit.",
         { exact: true },
       ),
   ).toBeVisible();
@@ -488,7 +500,11 @@ test("the empty Routes section points at Discord and Telegram", async ({
 test("passes axe in light and dark with the panel open", async ({ page }) => {
   await answerChecks(page);
   await openDashboard(page);
-  await page.getByRole("button", { name: "Connect Telegram" }).click();
+  await (
+    await openAdder(page)
+  )
+    .getByRole("button", { name: "Connect Telegram" })
+    .click();
   await expect(page.getByRole("textbox", { name: "Your code" })).toHaveValue(
     CODE,
   );
@@ -521,26 +537,26 @@ test("passes axe in light and dark with the panel open", async ({ page }) => {
 
 test("landing mentions Telegram", async ({ page }) => {
   await page.goto("/");
-  await expect(
-    page.getByText(
-      "Keep writing in Buffer. When Buffer publishes a post, Ferry sends it on to your Discord or Telegram channel and prepares a Reddit draft you post with one tap.",
-      { exact: true },
-    ),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Your Buffer posts on Discord and Telegram",
+  );
+  await expect(page.getByRole("tab", { name: "Telegram" })).toBeVisible();
 
   const step = page
-    .getByRole("region", { name: "How it works" })
-    .getByRole("listitem")
+    .getByRole("region", { name: "Set up Ferry in 3 steps" })
+    .locator("ol.steps > li")
     .nth(1);
   await expect(step.getByRole("heading", { level: 3 })).toHaveText(
-    "Connect Discord or Telegram",
+    "Connect Discord, Telegram or Reddit",
   );
-  await expect(step).toContainText("Telegram channel or group");
+  await expect(step).toContainText("add Ferry to a Telegram chat");
 
-  const board = page.getByRole("link", { name: "Buffer's suggestion board" });
-  await expect(page.locator("p", { has: board })).toContainText(
-    "Ferry starts with Discord, Telegram and Reddit.",
-  );
+  await expect(
+    page
+      .getByRole("list", { name: /^Votes on Buffer's suggestion board/ })
+      .getByRole("listitem")
+      .filter({ hasText: "Telegram" }),
+  ).toContainText("1.5K");
 
   const map = page.getByRole("img", { name: /^Example crossing map/ });
   await expect(map).toHaveAccessibleName(/@yourchannel on Telegram/);

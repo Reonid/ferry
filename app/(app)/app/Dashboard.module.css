@@ -1,0 +1,65 @@
+/* The banner's live region sits outside the stack: it is always mounted,
+   and an empty grid item would still add a gap. */
+.main {
+  inline-size: 100%;
+  max-inline-size: var(--container-app);
+  margin-inline: auto;
+  padding: var(--space-xl) var(--gutter-app) var(--space-3xl);
+}
+
+.stack {
+  display: grid;
+  gap: var(--space-xl);
+}
+
+.stack > * {
+  min-width: 0;
+}
+
+/* The status beside the Routes heading: the pill, then one quiet line. */
+.status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-sm);
+}
+
+/*
+ * Whether Ferry is checking Buffer, as a soft pill: green while live, grey
+ * while idle, red when it needs you. Its words carry the state; the colour
+ * only repeats them. Updates never move it.
+ */
+.sync {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-2xs) var(--space-sm);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.liveSync {
+  background: var(--ok-bg);
+  color: var(--ok-ink);
+}
+
+.pausedSync,
+.emptySync {
+  background: var(--wait-bg);
+  color: var(--wait-ink);
+}
+
+.reauthSync {
+  background: var(--bad-bg);
+  color: var(--bad-ink);
+}
+
+/* The map's frame. */
+.chart {
+  overflow: hidden;
+  border-radius: var(--radius-input);
+  background: var(--map-water);
+  box-shadow: 0 0 0 1px var(--color-rule);
+}

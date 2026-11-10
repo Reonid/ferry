@@ -1,0 +1,72 @@
+.grid {
+  display: grid;
+  gap: var(--space-lg);
+}
+
+/* Two groups side by side, ruled apart; stacked, ruled between. */
+.grid > .group + .group {
+  padding-block-start: var(--space-lg);
+  border-block-start: 1px solid var(--color-rule);
+}
+
+@media (min-width: 900px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0;
+  }
+
+  .grid > .group:first-child {
+    padding-inline-end: var(--space-xl);
+  }
+
+  .grid > .group + .group {
+    padding-block-start: 0;
+    padding-inline-start: var(--space-xl);
+    border-block-start: 0;
+    border-inline-start: 1px solid var(--color-rule);
+  }
+}
+
+.group {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: var(--space-sm);
+}
+
+.inline {
+  display: flex;
+  gap: var(--space-xs);
+  inline-size: 100%;
+  max-inline-size: 26rem;
+}
+
+.inline select {
+  flex: 1;
+  min-width: 0;
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.delete {
+  inline-size: 100%;
+}
+
+/* The quiet summary's text lines up with the words above it. */
+.delete > summary {
+  margin-inline-start: calc(-1 * var(--space-md));
+}
+
+.confirm {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-sm);
+  margin-block-start: var(--space-sm);
+  padding: var(--space-md);
+  border-radius: var(--radius-input);
+  background: var(--color-danger-soft);
+}
