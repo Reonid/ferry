@@ -23,15 +23,31 @@ const grant = (
 });
 
 describe("connections", () => {
-  it("lists them newest first, naming apps that gave no name", async () => {
+  it("lists them newest first with what each may do, naming apps that gave no name", async () => {
     const { store } = oauthFixture();
     await store.putGrant(grant("old", 1));
     await store.putGrant(
-      grant("new", 2, { clientName: null, redirectHost: "localhost" }),
+      grant("new", 2, {
+        clientName: null,
+        redirectHost: "localhost",
+        scope: "ferry:read ferry:write",
+      }),
     );
     expect(await listConnections(store, "acct")).toEqual([
-      { id: "new", name: "An AI app", host: "localhost", connectedAt: 2 },
-      { id: "old", name: "Claude", host: "claude.ai", connectedAt: 1 },
+      {
+        id: "new",
+        name: "An AI app",
+        host: "localhost",
+        connectedAt: 2,
+        canWrite: true,
+      },
+      {
+        id: "old",
+        name: "Claude",
+        host: "claude.ai",
+        connectedAt: 1,
+        canWrite: false,
+      },
     ]);
   });
 

@@ -125,6 +125,70 @@ test("connects an app on Allow, and the app can read Ferry", async ({
   );
 });
 
+test("an app allowed to make changes can pause a route, and Settings says so", async ({
+  page,
+}) => {
+  const { verifier, challenge } = pkce();
+  const clientId = await registerApp(page.request);
+  await signInTo(page, authorizePath(clientId, challenge));
+  await page
+    .getByRole("checkbox", { name: "Also let Claude make changes" })
+    .check();
+  await page.getByRole("button", { name: "Allow" }).click();
+  await page.waitForURL(/\/connect-test-callback\?/);
+  const token = await page.request.post("/api/oauth/token", {
+    form: {
+      grant_type: "authorization_code",
+      client_id: clientId,
+      code: new URL(page.url()).searchParams.get("code") ?? "",
+      code_verifier: verifier,
+      redirect_uri: CALLBACK,
+    },
+  });
+  const { access_token, scope } = await token.json();
+  expect(scope).toBe("ferry:read ferry:write");
+
+  const mcp = async (message: Record<string, unknown>) =>
+    (
+      await page.request.post("/mcp", {
+        headers: {
+          authorization: `Bearer ${access_token}`,
+          accept: "application/json, text/event-stream",
+        },
+        data: { jsonrpc: "2.0", id: 1, ...message },
+      })
+    ).json();
+  const listed = await mcp({ method: "tools/list" });
+  expect(listed.result.tools.map((t: { name: string }) => t.name)).toContain(
+    "pause_route",
+  );
+  const paused = await mcp({
+    method: "tools/call",
+    params: {
+      name: "pause_route",
+      arguments: { routeId: "dev-telegram-route" },
+    },
+  });
+  expect(paused.result.structuredContent.route.state).toBe("paused");
+
+  // The owner sees the change, and what the app may do.
+  await page.goto("/app");
+  await expect(
+    page
+      .getByRole("region", { name: "Routes" })
+      .getByRole("listitem")
+      .filter({ hasText: "Ferry Updates" })
+      .getByText("Paused", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("region", { name: "Settings" })
+      .getByRole("list", { name: "Connected apps" })
+      .getByRole("listitem")
+      .first(),
+  ).toContainText("localhost · can make changes · connected");
+});
+
 test("sends Cancel back to the app as access_denied", async ({ page }) => {
   const clientId = await registerApp(page.request);
   await signInTo(page, authorizePath(clientId, pkce().challenge));
@@ -298,7 +362,7 @@ test("lists a connected app in Settings, and Disconnect ends its access", async 
   const count = await apps.getByRole("listitem").count();
   // Newest first, so the app just connected heads the list.
   const newest = apps.getByRole("listitem").first();
-  await expect(newest).toContainText("localhost · connected");
+  await expect(newest).toContainText("localhost · reads only · connected");
   await newest.getByRole("button", { name: "Disconnect Claude" }).click();
   await expect(settings.locator("[data-section-status]")).toHaveText(
     "Claude is disconnected.",

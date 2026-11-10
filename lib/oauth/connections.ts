@@ -1,4 +1,5 @@
 import type { Store } from "../store/store";
+import { allowsChanges } from "./metadata";
 
 /** An AI app connected to Ferry, as Settings lists it. */
 export interface Connection {
@@ -8,6 +9,8 @@ export interface Connection {
   /** Where its sign-in returned, such as "claude.ai": the part an app can't make up. */
   host: string;
   connectedAt: number;
+  /** Whether the owner let it make changes when it connected. */
+  canWrite: boolean;
 }
 
 /** Newest first. */
@@ -21,6 +24,7 @@ export async function listConnections(
     name: g.clientName ?? "An AI app",
     host: g.redirectHost,
     connectedAt: g.createdAt,
+    canWrite: allowsChanges(g.scope),
   }));
 }
 
