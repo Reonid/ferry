@@ -1,0 +1,63 @@
+/* One card in the middle of the page: who asks, what it gets, the answer. */
+.card {
+  max-inline-size: 36rem;
+  margin-inline: auto;
+  gap: var(--space-lg);
+}
+
+.head {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.title {
+  font-size: var(--text-2xl);
+  font-weight: var(--display-weight);
+  line-height: 1.15;
+  letter-spacing: var(--tracking-display);
+  overflow-wrap: anywhere;
+}
+
+.lede {
+  color: var(--color-ink-2);
+}
+
+/* The one part an app can't make up: where the answer goes. */
+.host {
+  font-weight: 500;
+  color: var(--color-ink);
+  overflow-wrap: anywhere;
+}
+
+.group {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.list {
+  display: grid;
+  gap: var(--space-xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.list li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.icon {
+  flex: none;
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+  margin-block-start: 0.2em;
+  color: var(--color-accent);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
