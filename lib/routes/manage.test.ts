@@ -125,6 +125,40 @@ describe("routes", () => {
     expect(await store.dueAccounts(NOW, 10)).toContain("acct");
   });
 
+  it("returns the new route's id, and refuses one that already exists", async () => {
+    const { store } = makeSyncDeps();
+    await store.putAccount(account());
+    await store.putChannels("acct", channels);
+    await store.putDestination(discordDest("d1"));
+    const input = { channelIds: ["ch"], destinationId: "d1", tagNames: ["A"] };
+    const first = await createRoute(store, "acct", input, NOW);
+    const [route] = await store.listRoutes("acct");
+    expect(first).toEqual({
+      ok: true,
+      message: "Route added.",
+      routeId: route!.id,
+    });
+    // The same channels, destination and tags, however they're written.
+    expect(
+      await createRoute(
+        store,
+        "acct",
+        { ...input, channelIds: ["ch", "ch"], tagNames: [" a "] },
+        NOW,
+      ),
+    ).toEqual({ ok: false, error: "That route already exists." });
+    await setRoutePaused(store, "acct", route!.id, true, NOW);
+    expect(await createRoute(store, "acct", input, NOW)).toEqual({
+      ok: false,
+      error: "That route already exists, paused. Resume it instead.",
+    });
+    // Other tags make another route.
+    expect(
+      (await createRoute(store, "acct", { ...input, tagNames: [] }, NOW)).ok,
+    ).toBe(true);
+    expect(await store.listRoutes("acct")).toHaveLength(2);
+  });
+
   it("only touches the caller's own routes", async () => {
     const { store } = makeSyncDeps();
     await store.putAccount(account());

@@ -70,7 +70,11 @@ function tokenRequest(
 }
 
 /** What the consent screen does on Allow, without the screen. */
-async function approve(clientId: string, accountId: string) {
+async function approve(
+  clientId: string,
+  accountId: string,
+  scope = "ferry:read",
+) {
   const { verifier, challenge } = createPkcePair();
   const check = checkAuthorizationRequest(
     new URLSearchParams({
@@ -85,19 +89,22 @@ async function approve(clientId: string, accountId: string) {
   );
   if (!check.ok) throw new Error("request refused");
   return {
-    code: await issueCode(oauthContext(), accountId, check.request),
+    code: await issueCode(oauthContext(), accountId, {
+      ...check.request,
+      scope,
+    }),
     verifier,
   };
 }
 
-async function connect() {
+async function connect(scope?: string) {
   const accountId = await seedDevAccount(getStore(), Date.now());
   const { body: client } = await register({
     client_name: "Claude",
     redirect_uris: [CLAUDE],
     token_endpoint_auth_method: "none",
   });
-  const { code, verifier } = await approve(client.client_id, accountId);
+  const { code, verifier } = await approve(client.client_id, accountId, scope);
   const res = await tokenRequest({
     grant_type: "authorization_code",
     client_id: client.client_id,
@@ -272,6 +279,39 @@ describe("/mcp", () => {
       account: { name: "Ferry Dev" },
       dashboardUrl: `${BASE}/app`,
     });
+  });
+
+  it("lists the tools that change things only to a connection allowed to", async () => {
+    const names = async (token: string) =>
+      (
+        await (
+          await mcp(token, { jsonrpc: "2.0", id: 1, method: "tools/list" })
+        ).json()
+      ).result.tools.map((t: { name: string }) => t.name);
+    const reader = await connect();
+    expect(await names(reader.tokens.access_token)).toHaveLength(3);
+
+    const writer = await connect("ferry:read ferry:write");
+    expect(await names(writer.tokens.access_token)).toEqual([
+      "get_overview",
+      "list_activity",
+      "list_reddit_drafts",
+      "pause_route",
+      "resume_route",
+      "create_route",
+      "retry_delivery",
+      "send_latest_post",
+    ]);
+    const paused = await mcp(writer.tokens.access_token, {
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "pause_route", arguments: { routeId: "dev-route" } },
+    });
+    expect((await paused.json()).result.structuredContent.route.state).toBe(
+      "paused",
+    );
+    expect((await getStore().getRoute("dev-route"))?.paused).toBe(true);
   });
 
   it("allows only POST once connected", async () => {

@@ -104,9 +104,16 @@ async function callTool<C>(
     console.error(
       `ferry: MCP tool ${name} failed (${err instanceof Error ? err.name : "UnknownError"})`,
     );
+    // A tool that changes things may have got part way, so trying again
+    // blind could send a post twice.
+    const readOnly =
+      isObject(tool.definition.annotations) &&
+      tool.definition.annotations.readOnlyHint === true;
     outcome = {
       ok: false,
-      message: "Ferry couldn't read that just now. Try again in a moment.",
+      message: readOnly
+        ? "Ferry couldn't read that just now. Try again in a moment."
+        : "Ferry couldn't finish that just now. It may have gone through anyway, so check before trying again.",
     };
   }
   return ok(rpcResult(id, toolResult(outcome)));

@@ -29,6 +29,16 @@ const server: McpServer<{ who: string }> = {
         throw new TypeError("secret detail");
       },
     },
+    {
+      definition: {
+        name: "brokenRead",
+        inputSchema: { type: "object" },
+        annotations: { readOnlyHint: true },
+      },
+      async run() {
+        throw new TypeError("secret detail");
+      },
+    },
   ],
 };
 
@@ -151,6 +161,15 @@ describe("requests after initialize", () => {
     expect(log).toHaveBeenCalledWith(
       "ferry: MCP tool broken failed (TypeError)",
     );
+  });
+
+  it("warns that a change may have happened when a tool that changes things throws", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const text = async (name: string) =>
+      JSON.stringify(one(await call("tools/call", { name })).result);
+    // Without readOnlyHint a tool may have changed something.
+    expect(await text("broken")).toContain("check before trying again");
+    expect(await text("brokenRead")).toContain("Try again in a moment");
   });
 
   it("answers unknown tools and bad params with -32602", async () => {
