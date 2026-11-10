@@ -13,6 +13,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local design-tool state, kept out of git: tasteskill's Chrome
+    // profiles, impeccable's critiques and Hallmark's lint records.
+    ".taste-skill/**",
+    ".impeccable/**",
+    ".hallmark/**",
   ]),
   eslintConfigPrettier,
 ]);

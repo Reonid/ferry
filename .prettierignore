@@ -7,3 +7,9 @@ certificates/
 .superpowers/
 docs/superpowers/
 test/fixtures/buffer-schema.json
+# Local design-tool state and exports, kept out of git: tasteskill,
+# impeccable, Hallmark, and the logo exports in output/
+.taste-skill/
+.impeccable/
+.hallmark/
+output/
