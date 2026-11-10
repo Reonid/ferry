@@ -13,6 +13,10 @@ import {
   LOCK_REFRESH_MS,
   LOCK_SYNC_MS,
   MAX_ATTEMPTS,
+  MCP_ACCESS_TTL_S,
+  MCP_GRANT_TTL_S,
+  MCP_GRANTS_KEPT,
+  OAUTH_CODE_TTL_S,
   RETRY_DELAYS_MS,
   RETRY_JOB_TTL_S,
   TELEGRAM_LINK_TTL_S,
@@ -42,6 +46,10 @@ describe("constants", () => {
     expect(ALERT_DEDUPE_TTL_S).toBe(7 * DAY);
     expect(ALERTS_KEPT).toBe(20);
     expect(TELEGRAM_LINK_TTL_S).toBe(15 * 60);
+    expect(OAUTH_CODE_TTL_S).toBe(5 * 60);
+    expect(MCP_ACCESS_TTL_S).toBe(60 * 60);
+    expect(MCP_GRANT_TTL_S).toBe(30 * DAY);
+    expect(MCP_GRANTS_KEPT).toBe(10);
     expect(Math.max(LOCK_SYNC_MS, LOCK_REFRESH_MS)).toBeLessThanOrEqual(60_000);
   });
 

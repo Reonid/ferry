@@ -4,6 +4,9 @@ import {
   ALERT_DEDUPE_TTL_S,
   ALERTS_KEPT,
   DRAFT_TTL_S,
+  MCP_ACCESS_TTL_S,
+  MCP_GRANT_TTL_S,
+  OAUTH_CODE_TTL_S,
   RETRY_JOB_TTL_S,
   TELEGRAM_LINK_TTL_S,
   TELEGRAM_OFFSET_TTL_S,
@@ -14,6 +17,9 @@ import type {
   Alert,
   Channel,
   Destination,
+  McpAccess,
+  McpGrant,
+  OAuthCode,
   RateLimitSnapshot,
   RedditDraft,
   RetryJob,
@@ -81,6 +87,22 @@ export interface Store {
   getRateLimit(): Promise<RateLimitSnapshot | null>;
   countApiCall(id: string, day: string): Promise<number>;
   getApiCalls(id: string, day: string): Promise<number>;
+  /** Codes and tokens are filed by their SHA-256, never by themselves. */
+  putOAuthCode(hash: string, code: OAuthCode): Promise<void>;
+  /** The code, once: null when it's gone or another request took it first. */
+  takeOAuthCode(hash: string): Promise<OAuthCode | null>;
+  putGrant(grant: McpGrant): Promise<void>;
+  getGrant(grantId: string): Promise<McpGrant | null>;
+  /** Oldest first. */
+  listGrants(id: string): Promise<McpGrant[]>;
+  /** Deletes the connection and both of its tokens. */
+  deleteGrant(grant: McpGrant): Promise<void>;
+  putAccessToken(hash: string, access: McpAccess): Promise<void>;
+  getAccessToken(hash: string): Promise<McpAccess | null>;
+  deleteAccessToken(hash: string): Promise<void>;
+  putRefreshToken(hash: string, grantId: string): Promise<void>;
+  /** The refresh token's grant ID, once, like takeOAuthCode. */
+  takeRefreshToken(hash: string): Promise<string | null>;
   deleteAccountData(id: string): Promise<void>;
 }
 
@@ -108,6 +130,11 @@ const k = {
   alerts: (id: string) => `ferry:alerts:${id}`,
   rateLimit: "ferry:ratelimit",
   calls: (id: string, day: string) => `ferry:calls:${id}:${day}`,
+  mcpCode: (hash: string) => `ferry:mcp:code:${hash}`,
+  mcpGrant: (grantId: string) => `ferry:mcp:grant:${grantId}`,
+  mcpGrants: (id: string) => `ferry:mcp:grants:${id}`,
+  mcpAccess: (hash: string) => `ferry:mcp:access:${hash}`,
+  mcpRefresh: (hash: string) => `ferry:mcp:refresh:${hash}`,
 };
 
 export function createStore(redis: RedisLike, key: Buffer): Store {
@@ -129,6 +156,15 @@ export function createStore(redis: RedisLike, key: Buffer): Store {
   }
   async function del(...keys: string[]): Promise<void> {
     if (keys.length > 0) await redis.del(...keys);
+  }
+  /**
+   * Reads a one-time value and deletes it. Two requests can both read it,
+   * but only one delete removes the key, and only that request gets it.
+   */
+  async function take(redisKey: string): Promise<string | null> {
+    const raw = await redis.get(redisKey);
+    if (raw === null) return null;
+    return (await redis.del(redisKey)) === 1 ? raw : null;
   }
   /** Members of an index zset (newest first) resolved to records; members whose record expired are pruned. */
   async function listIndexed<T>(
@@ -414,11 +450,58 @@ export function createStore(redis: RedisLike, key: Buffer): Store {
       return raw === null ? 0 : Number(raw);
     },
 
+    putOAuthCode: (hash, code) =>
+      setJson(k.mcpCode(hash), code, { ex: OAUTH_CODE_TTL_S }),
+    async takeOAuthCode(hash) {
+      const raw = await take(k.mcpCode(hash));
+      return raw === null ? null : (JSON.parse(raw) as OAuthCode);
+    },
+    async putGrant(grant) {
+      await setJson(k.mcpGrant(grant.id), grant, { ex: MCP_GRANT_TTL_S });
+      await redis.sadd(k.mcpGrants(grant.accountId), grant.id);
+      // Renewed with every write, so the index outlives each grant it lists.
+      await redis.expire(k.mcpGrants(grant.accountId), MCP_GRANT_TTL_S);
+    },
+    getGrant: (grantId) => getJson<McpGrant>(k.mcpGrant(grantId)),
+    async listGrants(id) {
+      const ids = await redis.smembers(k.mcpGrants(id));
+      const grants = await mgetJson<McpGrant>(ids.map(k.mcpGrant));
+      const gone = ids.filter((_, i) => grants[i] === null);
+      if (gone.length > 0) await redis.srem(k.mcpGrants(id), ...gone);
+      return grants
+        .filter((g): g is McpGrant => g !== null)
+        .sort((a, b) => a.createdAt - b.createdAt);
+    },
+    async deleteGrant(grant) {
+      await redis.srem(k.mcpGrants(grant.accountId), grant.id);
+      await del(
+        k.mcpGrant(grant.id),
+        k.mcpAccess(grant.accessHash),
+        k.mcpRefresh(grant.refreshHash),
+      );
+    },
+    putAccessToken: (hash, access) =>
+      setJson(k.mcpAccess(hash), access, { ex: MCP_ACCESS_TTL_S }),
+    getAccessToken: (hash) => getJson<McpAccess>(k.mcpAccess(hash)),
+    deleteAccessToken: (hash) => del(k.mcpAccess(hash)),
+    putRefreshToken: (hash, grantId) =>
+      redis
+        .set(k.mcpRefresh(hash), grantId, { ex: MCP_GRANT_TTL_S })
+        .then(() => undefined),
+    takeRefreshToken: (hash) => take(k.mcpRefresh(hash)),
+
     async deleteAccountData(id) {
       const destIds = await redis.smembers(k.dests(id));
       const routeIds = await redis.smembers(k.routes(id));
       const groupKeys = await redis.zrange(k.acts(id), 0, -1);
       const tokens = await redis.zrange(k.drafts(id), 0, -1);
+      const grantIds = await redis.smembers(k.mcpGrants(id));
+      const grants = await mgetJson<McpGrant>(grantIds.map(k.mcpGrant));
+      const grantTokenKeys = grants.flatMap((g) =>
+        g === null
+          ? []
+          : [k.mcpAccess(g.accessHash), k.mcpRefresh(g.refreshHash)],
+      );
 
       // Jobs for destinations removed earlier are this account's too.
       const dueIds = await redis.zrange(k.retryDue, 0, -1);
@@ -435,9 +518,11 @@ export function createStore(redis: RedisLike, key: Buffer): Store {
       await redis.zrem(k.syncDue, id);
 
       // Alert dedupe keys (ferry:alertkey:*), daily call counters
-      // (ferry:calls:*) and Telegram link codes (ferry:tglink:*) are left to
-      // expire on their own TTLs: they hold only IDs and counts, and cannot
-      // be enumerated without a key scan.
+      // (ferry:calls:*), Telegram link codes (ferry:tglink:*) and MCP
+      // consent codes (ferry:mcp:code:*) are left to expire on their own
+      // TTLs: they hold only IDs and counts, and cannot be enumerated without
+      // a key scan. A consent code is useless once the account is gone, since
+      // the token request checks that it still exists.
       await del(
         k.account(id),
         k.tokens(id),
@@ -448,11 +533,14 @@ export function createStore(redis: RedisLike, key: Buffer): Store {
         k.acts(id),
         k.drafts(id),
         k.alerts(id),
+        k.mcpGrants(id),
         ...routeIds.map(k.route),
         ...destIds.map(k.dest),
         ...groupKeys.map((g) => k.act(id, g)),
         ...tokens.map(k.draft),
         ...ownJobIds.map(k.retry),
+        ...grantIds.map(k.mcpGrant),
+        ...grantTokenKeys,
       );
     },
   };
