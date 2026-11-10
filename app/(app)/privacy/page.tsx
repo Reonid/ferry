@@ -122,6 +122,18 @@ const EXPIRING: Item[] = [
     time: "up to a minute",
     detail: "They stop two syncs of your account from running at once.",
   },
+  {
+    name: "AI app connections",
+    time: "30 days after last use",
+    detail:
+      "For each app you connect to Ferry's MCP server: the name it gives itself, the site its sign-in returned to, when you connected it, and one-way SHA-256 fingerprints of its current tokens. Ferry never keeps the tokens themselves, and each access token works for an hour. Disconnect an app under Settings at any time.",
+  },
+  {
+    name: "Connection codes",
+    time: "up to 5 minutes",
+    detail:
+      "The one-time code an app trades for its tokens after you press Allow, kept as a SHA-256 fingerprint with your account ID and the app's request.",
+  },
 ];
 
 const COOKIES: Item[] = [
@@ -146,6 +158,12 @@ const COOKIES: Item[] = [
     time: "up to 10 minutes",
     detail:
       "Protects connecting Discord the same way. It's removed as soon as the connection finishes.",
+  },
+  {
+    name: <code>ferry_next</code>,
+    time: "up to 10 minutes",
+    detail:
+      "Brings you back to an app's connection screen after you sign in with Buffer. It's removed as soon as sign-in finishes.",
   },
 ];
 
@@ -255,6 +273,15 @@ export default function PrivacyPage() {
                 is connected. Telegram has no alt text, so images arrive there
                 without their descriptions.
               </li>
+              <li>
+                <strong>AI apps you connect</strong>, such as Claude by
+                Anthropic or ChatGPT by OpenAI, receive what their tools ask
+                Ferry for: your routes and the names of your channels and
+                destinations, the first 80 characters of recent posts, your
+                Reddit drafts and your alerts. Nothing goes to an app until you
+                connect it, and never a token, webhook or chat ID. What it does
+                next is up to that app&apos;s own privacy policy.
+              </li>
             </ul>
             <p>
               Ferry never posts to Reddit. Opening a draft&apos;s Reddit link
@@ -274,10 +301,11 @@ export default function PrivacyPage() {
             </p>
             <p>
               Delete my data is under Settings on your dashboard. It deletes
-              everything above and signs you out. A few records run out on their
-              own instead, on the schedule above: delivery claims, Telegram link
-              codes, sent-alert markers, API-call counters and sync locks.
-              Nothing changes in Buffer.
+              everything above, disconnects every AI app and signs you out. A
+              few records run out on their own instead, on the schedule above:
+              delivery claims, Telegram link codes, connection codes, sent-alert
+              markers, API-call counters and sync locks. Nothing changes in
+              Buffer.
             </p>
             <p>
               Removing a Discord destination, or deleting your data, deletes
@@ -298,7 +326,7 @@ export default function PrivacyPage() {
               </a>
               . Issues are public, so leave out anything private.
             </p>
-            <p className={styles.updated}>Last updated November 8, 2026.</p>
+            <p className={styles.updated}>Last updated November 10, 2026.</p>
           </section>
         </div>
       </main>

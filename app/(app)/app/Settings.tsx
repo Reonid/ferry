@@ -183,7 +183,8 @@ export default function Settings({
             <div className={styles.confirm}>
               <p>
                 This deletes your routes, destinations, activity and drafts from
-                Ferry, and signs you out. Nothing changes in Buffer.
+                Ferry, disconnects any AI apps, and signs you out. Nothing
+                changes in Buffer.
               </p>
               <form action={deleteMyDataAction}>
                 <button type="submit" className={cx(ui.button, ui.danger)}>
