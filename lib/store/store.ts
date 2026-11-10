@@ -44,6 +44,8 @@ export interface Store {
   listRoutes(id: string): Promise<Route[]>;
   getRoute(routeId: string): Promise<Route | null>;
   putRoute(r: Route): Promise<void>;
+  /** Updates a route that still exists; false when it's gone. */
+  replaceRoute(r: Route): Promise<boolean>;
   deleteRoute(id: string, routeId: string): Promise<void>;
   listDestinations(id: string): Promise<Destination[]>;
   getDestination(destId: string): Promise<Destination | null>;
@@ -273,6 +275,13 @@ export function createStore(redis: RedisLike, key: Buffer): Store {
       await setJson(k.route(r.id), r);
       await redis.sadd(k.routes(r.accountId), r.id);
     },
+    async replaceRoute(r) {
+      // SET XX and no SADD: a pause racing a delete mustn't bring it back.
+      return (
+        (await redis.set(k.route(r.id), JSON.stringify(r), { xx: true })) ===
+        "OK"
+      );
+    },
     async deleteRoute(id, routeId) {
       await redis.srem(k.routes(id), routeId);
       await del(k.route(routeId));
@@ -313,7 +322,6 @@ export function createStore(redis: RedisLike, key: Buffer): Store {
         lastSyncAt: null,
         nextRunAt: null,
         liveUntil: null,
-        lastSendLatestAt: null,
         retryAt: null,
         failureCount: 0,
         ...(await getJson<SyncState>(k.sync(id))),
