@@ -132,7 +132,7 @@ const QUESTIONS: { q: string; a: ReactNode }[] = [
   },
   {
     q: "Can I use Ferry from Claude or ChatGPT?",
-    a: "Yes. Add Ferry as a custom connector, then ask what crossed today, why a post didn’t arrive, or for a sharper Reddit draft. Like the rest of Ferry, it only reads. It works alongside Buffer’s own MCP server, which writes and schedules your posts.",
+    a: "Yes. Add Ferry as a custom connector with the address under Settings on your dashboard, then ask what crossed today, why a post didn’t arrive, or for a sharper Reddit draft. Like the rest of Ferry, it only reads. It works alongside Buffer’s own MCP server, which writes and schedules your posts.",
   },
   {
     q: "Is Ferry open source?",

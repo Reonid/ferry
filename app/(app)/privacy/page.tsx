@@ -126,13 +126,13 @@ const EXPIRING: Item[] = [
     name: "AI app connections",
     time: "30 days after last use",
     detail:
-      "For each app you connect to Ferry's MCP server: the name it gives itself, the site its sign-in returned to, when you connected it, and one-way SHA-256 fingerprints of its current tokens. Ferry never keeps the tokens themselves, and each access token works for an hour. Disconnect an app under Settings at any time.",
+      "For each app you connect to Ferry's MCP server: the name it gives itself, the site its sign-in returned to, when you connected it, and one-way SHA-256 fingerprints of its current tokens and of the ones it has used up, so a copy that comes back ends the connection. Ferry never keeps the tokens themselves, and each access token works for an hour. Disconnect an app under Settings at any time.",
   },
   {
     name: "Connection codes",
     time: "up to 5 minutes",
     detail:
-      "The one-time code an app trades for its tokens after you press Allow, kept as a SHA-256 fingerprint with your account ID and the app's request.",
+      "The one-time code an app trades for its tokens after you press Allow, kept as a SHA-256 fingerprint with your account ID and the app's request, and once used, which connection it made.",
   },
 ];
 
