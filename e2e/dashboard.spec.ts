@@ -202,6 +202,10 @@ test("reaches every control by keyboard", async ({ page }) => {
   await tabTo(page, settings.getByRole("button", { name: "Refresh channels" }));
   await tabTo(page, settings.getByRole("button", { name: "Sign out" }));
   await tabTo(page, settings.getByText("Delete my data", { exact: true }));
+  await tabTo(
+    page,
+    settings.getByRole("button", { name: "Copy connector address" }),
+  );
 });
 
 test("sends a boat across the lane when a delivery lands", async ({ page }) => {

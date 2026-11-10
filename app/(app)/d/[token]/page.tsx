@@ -10,7 +10,7 @@ import type { MirrorImage } from "@/lib/types";
 import { DraftIcon, ExternalIcon } from "@/app/components/icons";
 import SiteHeader from "@/app/components/SiteHeader";
 import ui from "@/app/components/ui.module.css";
-import CopyField from "./CopyField";
+import CopyField from "@/app/components/CopyField";
 import styles from "./page.module.css";
 
 // The link is the only key to a draft: keep it out of search engines and

@@ -184,3 +184,52 @@ test("the consent screen passes axe in light and dark, and takes the keyboard", 
   await tabTo(page, page.getByRole("button", { name: "Allow" }));
   await tabTo(page, page.getByRole("button", { name: "Cancel" }));
 });
+
+test("lists a connected app in Settings, and Disconnect ends its access", async ({
+  page,
+}) => {
+  const { verifier, challenge } = pkce();
+  const clientId = await registerApp(page.request);
+  await signInTo(page, authorizePath(clientId, challenge));
+  await page.getByRole("button", { name: "Allow" }).click();
+  await page.waitForURL(/\/connect-test-callback\?/);
+  const token = await page.request.post("/api/oauth/token", {
+    form: {
+      grant_type: "authorization_code",
+      client_id: clientId,
+      code: new URL(page.url()).searchParams.get("code") ?? "",
+      code_verifier: verifier,
+      redirect_uri: CALLBACK,
+    },
+  });
+  const { access_token } = await token.json();
+
+  // Disconnect runs a server action, so wait for hydration: the first poll.
+  const polled = page.waitForResponse((r) => r.url().endsWith("/api/live"));
+  await page.goto("/app");
+  await polled;
+  const settings = page.getByRole("region", { name: "Settings" });
+  await expect(
+    settings.getByRole("textbox", { name: "Connector address" }),
+  ).toHaveValue(`${BASE}/mcp`);
+  const apps = settings.getByRole("list", { name: "Connected apps" });
+  const count = await apps.getByRole("listitem").count();
+  // Newest first, so the app just connected heads the list.
+  const newest = apps.getByRole("listitem").first();
+  await expect(newest).toContainText("localhost · connected");
+  await newest.getByRole("button", { name: "Disconnect Claude" }).click();
+  await expect(settings.locator("[data-section-status]")).toHaveText(
+    "Claude is disconnected.",
+  );
+  await expect(
+    settings.getByRole("heading", { name: "Settings" }),
+  ).toBeFocused();
+  if (count > 1)
+    await expect(apps.getByRole("listitem")).toHaveCount(count - 1);
+
+  const ping = await page.request.post("/mcp", {
+    headers: { authorization: `Bearer ${access_token}` },
+    data: { jsonrpc: "2.0", id: 1, method: "ping" },
+  });
+  expect(ping.status()).toBe(401);
+});

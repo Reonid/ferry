@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { LIVE_POLL_MS } from "@/lib/constants";
 import type { DashboardSnapshot } from "@/lib/dashboard/snapshot";
+import type { Connection } from "@/lib/oauth/connections";
 import SiteHeader from "@/app/components/SiteHeader";
 import header from "@/app/components/SiteHeader.module.css";
 import Activity from "./Activity";
@@ -110,11 +111,17 @@ function useClock(start: number): number {
 
 export default function Dashboard({
   snapshot,
+  assistants,
+  mcpUrl,
   renderedAt,
   notice,
   telegramEnabled,
 }: {
   snapshot: DashboardSnapshot;
+  /** AI apps connected through Ferry's MCP server, newest first. */
+  assistants: Connection[];
+  /** The address apps connect to. */
+  mcpUrl: string;
   renderedAt: number;
   notice: Notice | null;
   /** Static config, so it stays out of the snapshot /api/live returns. */
@@ -224,6 +231,9 @@ export default function Dashboard({
             destinations={live.destinations}
             notifyDestinationId={live.notifyDestinationId}
             telegramEnabled={telegramEnabled}
+            assistants={assistants}
+            mcpUrl={mcpUrl}
+            now={now}
           />
         </div>
       </main>
