@@ -236,6 +236,12 @@ export function registerClient(
     t: issuedAt,
   };
   const clientId = encodeId(payload, key);
+  // Long URIs grow once encoded; an ID readClient would refuse helps no one.
+  if (clientId.length > MAX_CLIENT_ID)
+    return invalid(
+      "invalid_client_metadata",
+      "The registration is too long. Use fewer or shorter redirect URIs.",
+    );
   const client: OAuthClient = {
     clientId,
     name: payload.n,

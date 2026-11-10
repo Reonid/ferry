@@ -157,6 +157,26 @@ describe("registerClient", () => {
     }
   });
 
+  it("refuses a registration whose ID would be too long to use", () => {
+    // Each URI is under 512 characters, but three bytes a character once encoded.
+    const uris = Array.from(
+      { length: 5 },
+      (_, i) => `https://a.example/${i}/${"路".repeat(480)}`,
+    );
+    expect(registerClient({ redirect_uris: uris }, key, NOW)).toMatchObject({
+      ok: false,
+      error: "invalid_client_metadata",
+    });
+    // Anything registration accepts, readClient accepts.
+    const ok = registerClient(
+      { redirect_uris: uris.slice(0, 1), token_endpoint_auth_method: "none" },
+      key,
+      NOW,
+    );
+    if (!ok.ok) throw new Error(ok.description);
+    expect(readClient(ok.client.clientId, key)).not.toBeNull();
+  });
+
   it("cleans the name and keeps it short", () => {
     expect(register({ redirect_uris: [CLAUDE] }).name).toBeNull();
     expect(register({ redirect_uris: [CLAUDE], client_name: "  " }).name).toBe(

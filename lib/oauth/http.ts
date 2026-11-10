@@ -42,15 +42,32 @@ export function discovery(body: unknown): Response {
   });
 }
 
-/** The body as text, or null when it's larger than `limit` bytes. */
+/**
+ * The body as text, or null when it's larger than `limit` bytes. It's
+ * counted as it arrives, so a body sent without Content-Length can't run
+ * past the limit either.
+ */
 export async function readBody(
   request: Request,
   limit: number,
 ): Promise<string | null> {
   const declared = Number(request.headers.get("content-length") ?? 0);
   if (declared > limit) return null;
-  const text = await request.text();
-  return Buffer.byteLength(text) > limit ? null : text;
+  if (request.body === null) return "";
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > limit) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks).toString("utf8");
 }
 
 export function urls(): OAuthUrls {
