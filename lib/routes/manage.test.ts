@@ -421,7 +421,7 @@ describe("sendLatestPost", () => {
     const r = await sendLatestPost(deps, "acct", routeId);
     expect(r).toEqual({
       ok: false,
-      error: "That didn't go through. Check the activity below.",
+      error: "That didn't go through. Activity has the details.",
     });
   });
 
