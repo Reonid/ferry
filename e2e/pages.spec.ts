@@ -9,8 +9,7 @@ import { tabTo } from "./keyboard";
 
 const DISCLAIMER =
   "Ferry is an independent project built on the Buffer API. It is not affiliated with or endorsed by Buffer.";
-const PITCH =
-  "Ferry carries your Buffer posts to the places Buffer doesn't go.";
+const PITCH = "Your Buffer posts on Discord and Telegram";
 const PROMISE =
   "Ferry can read your Buffer posts. It can't post, edit or delete anything.";
 const DRAFT_TITLE = "We just opened the beta of our scheduling side project";
@@ -37,25 +36,42 @@ async function openDraft(page: Page): Promise<void> {
   await expect(page.getByRole("button", { name: "Copy title" })).toBeEnabled();
 }
 
+/**
+ * The main action is in the hero and the close at every width; the nav's
+ * (wide screens) and the phone bar's (once the hero's has scrolled away)
+ * come and go. Every one shown goes to the same place.
+ */
+async function expectMainAction(
+  page: Page,
+  name: string,
+  href: string,
+): Promise<void> {
+  for (const where of ["main", "contentinfo"] as const)
+    await expect(
+      page.getByRole(where).getByRole("link", { name, exact: true }),
+    ).toHaveAttribute("href", href);
+  for (const link of await page.getByRole("link", { name, exact: true }).all())
+    await expect(link).toHaveAttribute("href", href);
+}
+
 test("landing shows the pitch and the read-only promise", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(PITCH);
   await expect(page.getByText(PROMISE, { exact: true })).toBeVisible();
-  await expect(
-    page.getByRole("link", { name: "Sign in with Buffer" }),
-  ).toHaveAttribute("href", "/api/auth/buffer");
+  await expectMainAction(page, "Sign in with Buffer", "/api/auth/buffer");
   await expect(page.getByRole("link", { name: "Open Ferry" })).toHaveCount(0);
   // Scoped to main: Next's route announcer is an alert outside it.
   await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
 
+  // The steps' own list: the product mocks inside them hold lists too.
   const steps = page
-    .getByRole("region", { name: "How it works" })
-    .getByRole("listitem");
+    .getByRole("region", { name: "Set up Ferry in 3 steps" })
+    .locator("ol.steps > li");
   await expect(steps).toHaveCount(3);
   for (const [i, name] of [
-    "Sign in",
-    "Connect Discord",
-    "Draw a route",
+    "Sign in with Buffer",
+    "Connect Discord, Telegram or Reddit",
+    "Route your Buffer channels",
   ].entries())
     await expect(steps.nth(i).getByRole("heading", { level: 3 })).toHaveText(
       name,
@@ -63,9 +79,10 @@ test("landing shows the pitch and the read-only promise", async ({ page }) => {
 
   const board = page.getByRole("link", { name: "Buffer's suggestion board" });
   await expect(board).toHaveAttribute("href", "https://suggestions.buffer.com");
-  await expect(page.locator("p", { has: board })).toHaveText(
-    /Reddit.+3\.0K.+Telegram.+1\.5K.+Discord.+1\.4K/,
-  );
+  // The board's own figures, one row a channel, most votes first.
+  await expect(
+    page.getByRole("list", { name: /^Votes on Buffer's suggestion board/ }),
+  ).toHaveText(/3\.0K.+Reddit.+1\.5K.+Telegram.+1\.4K.+Discord/);
 
   await expect(
     page.getByRole("img", { name: /^Example crossing map/ }),
@@ -85,10 +102,7 @@ test("landing reports a sign-in that didn't finish", async ({ page }) => {
 test("landing opens Ferry when signed in", async ({ page }) => {
   await signIn(page);
   await page.goto("/");
-  await expect(page.getByRole("link", { name: "Open Ferry" })).toHaveAttribute(
-    "href",
-    "/app",
-  );
+  await expectMainAction(page, "Open Ferry", "/app");
   await expect(
     page.getByRole("link", { name: "Sign in with Buffer" }),
   ).toHaveCount(0);
@@ -101,7 +115,7 @@ test("the landing map sails once, and stays still under reduced motion", async (
   await page.goto("/");
   const map = page.getByRole("img", { name: /^Example crossing map/ });
   await map.scrollIntoViewIfNeeded();
-  await expect(map.locator("[data-lane]")).toHaveCount(3);
+  await expect(map.locator("[data-lane]")).toHaveCount(4);
   await expect(map.locator("[data-boat]").first()).toBeVisible({
     timeout: 10_000,
   });
@@ -116,7 +130,7 @@ test("the landing map sails once, and stays still under reduced motion", async (
   await page.waitForLoadState("networkidle");
   await page.waitForTimeout(2000);
   await expect(page.locator("[data-boat], [data-lit]")).toHaveCount(0);
-  await expect(map.locator("[data-lane]")).toHaveCount(3);
+  await expect(map.locator("[data-lane]")).toHaveCount(4);
 });
 
 test("the landing has a share image", async ({ page, request }) => {
@@ -146,6 +160,7 @@ test("privacy lists stored data", async ({ page }) => {
     "Activity, 30 days",
     "Reddit drafts, 7 days",
     "Posts waiting to retry, up to one day",
+    "Telegram link codes, up to 15 minutes",
     "API-call counters, 2 days",
   ])
     await expect(stored.getByText(item, { exact: true })).toBeVisible();
@@ -163,8 +178,23 @@ test("privacy lists stored data", async ({ page }) => {
   const others = page.getByRole("region", {
     name: "Who else handles your data",
   });
-  for (const processor of ["Vercel", "Upstash", "Redis", "QStash", "Discord"])
+  for (const processor of [
+    "Vercel",
+    "Upstash",
+    "Redis",
+    "QStash",
+    "Discord",
+    "Telegram",
+  ])
     await expect(others).toContainText(processor);
+  await expect(others).toContainText("Telegram has no alt text");
+  await expect(others).toContainText(
+    "In a group, Ferry's bot receives commands sent to it and replies to its own messages, or every message if someone makes it an admin. In a channel, where it's an admin, it receives every post. In a DM, it receives everything sent to it. Ferry reads all of these only to find a link code, and never stores them.",
+  );
+  await expect(others).toContainText(
+    "It asks to delete messages in a channel only so it can remove the code post once the channel is connected.",
+  );
+  await expect(others).not.toContainText("sees only commands");
   await expect(others).toContainText(
     "Ferry never posts to Reddit. Opening a draft's Reddit link sends its title and text to Reddit's submit page, and nothing is posted until you press Post there.",
   );
@@ -175,6 +205,9 @@ test("privacy lists stored data", async ({ page }) => {
   });
   await expect(leaving).toContainText(
     "Signing out ends this browser's session, but syncing continues until you choose Delete my data.",
+  );
+  await expect(leaving).toContainText(
+    "A few records run out on their own instead, on the schedule above: delivery claims, Telegram link codes, sent-alert markers, API-call counters and sync locks.",
   );
   await expect(
     page.getByRole("link", { name: "Open an issue on GitHub" }),
@@ -298,14 +331,19 @@ test("passes axe in light and dark", async ({ page, request }) => {
     "/d/no-such-draft",
     "/d/no-such-draft/post",
   ]) {
-    await page.goto(path);
-    if (path === "/d/dev-draft")
-      await expect(
-        page.getByRole("button", { name: "Copy title" }),
-      ).toBeEnabled();
     const backgrounds = new Set<string>();
     for (const colorScheme of ["light", "dark"] as const) {
+      // Loaded in each scheme rather than switched in place, so every
+      // colour is measured at rest.
       await page.emulateMedia({ colorScheme });
+      await page.goto(path);
+      if (path === "/d/dev-draft")
+        await expect(
+          page.getByRole("button", { name: "Copy title" }),
+        ).toBeEnabled();
+      // The landing's tabs hide their other panels once its script runs.
+      if (path.startsWith("/?") || path === "/")
+        await expect(page.locator("html")).toHaveClass(/\bjs\b/);
       backgrounds.add(
         await page.evaluate(
           () => getComputedStyle(document.body).backgroundColor,
@@ -331,12 +369,19 @@ test("reaches every control by keyboard", async ({
 }) => {
   await seed(request);
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-  const home = page.getByRole("link", { name: "Ferry", exact: true });
+  // The header's: the landing's footer has a "Ferry" link too.
+  const home = page
+    .getByRole("banner")
+    .getByRole("link", { name: "Ferry", exact: true });
   const footer = page.getByRole("contentinfo");
 
   await page.goto("/");
   await tabTo(page, home);
-  await tabTo(page, page.getByRole("link", { name: "Sign in with Buffer" }));
+  // The hero's: a phone keeps the nav's in its menu.
+  await tabTo(
+    page,
+    page.getByRole("main").getByRole("link", { name: "Sign in with Buffer" }),
+  );
   await tabTo(
     page,
     page.getByRole("link", { name: "Buffer's suggestion board" }),

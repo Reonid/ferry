@@ -63,6 +63,13 @@ function networkNames(channels: Channel[]): Map<string, string> {
   );
 }
 
+/** Whether a route can go there. A Telegram DM takes only alerts and draft notices. */
+export function routable(destination: PublicDestination): boolean {
+  return !(
+    destination.kind === "telegram" && destination.chatType === "private"
+  );
+}
+
 export function destinationName(
   id: string,
   destinations: PublicDestination[],

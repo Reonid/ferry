@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deliverToDestination } from "./deliver";
+import { deliverToDestination, runJob } from "./deliver";
 import {
   NOW,
   account,
@@ -8,6 +8,7 @@ import {
   mirror,
   redditDest,
   route,
+  telegramDest,
 } from "./test-support";
 import { RETRY_DELAYS_MS, RETRY_JOB_TTL_S, WRITE_AHEAD_MS } from "../constants";
 import type { DeliveryOutcome } from "../types";
@@ -263,5 +264,126 @@ describe("deliverToDestination", () => {
     const act = await store.getActivity("acct", "g1");
     expect(Array.from(act!.excerpt)).toHaveLength(80);
     expect(act!.excerpt).toBe("😀".repeat(80));
+  });
+
+  describe("Telegram", () => {
+    const tgRun = async (tgScript: DeliveryOutcome[] = []) => {
+      const ctx = makeDeps([], tgScript);
+      const dest = telegramDest("t1");
+      await ctx.store.putDestination(dest);
+      await ctx.store.putDestination(
+        telegramDest("n", { chatType: "private" }),
+      );
+      const acct = account({ notifyDestinationId: "n" });
+      await ctx.store.putAccount(acct);
+      const run = (m = mirror()) =>
+        deliverToDestination({
+          account: acct,
+          destination: dest,
+          mirror: m,
+          deps: ctx.deps,
+        });
+      return { ...ctx, dest, acct, run };
+    };
+
+    it("delivers to a Telegram channel once and skips the same group next time", async () => {
+      const { run, telegramCalls, store, dest } = await tgRun();
+      expect(await run()).toBe("delivered");
+      expect(await run()).toBe("skipped");
+      expect(telegramCalls).toHaveLength(1);
+      expect(telegramCalls[0]).toMatchObject({
+        token: "test-token",
+        chatId: dest.chatId,
+        startAt: 0,
+      });
+      expect(telegramCalls[0]!.calls[0]!.method).toBe("sendMessage");
+      expect(await store.getRetry("t1|g1")).toBeNull();
+      expect(
+        (await store.getActivity("acct", "g1"))?.deliveries[0],
+      ).toMatchObject({ destinationId: "t1", status: "delivered" });
+    });
+
+    it("resumes a Telegram send from sentCount", async () => {
+      const { run, telegramCalls, store, deps, acct, dest } = await tgRun([
+        fail({ sentCount: 1 }),
+      ]);
+      expect(await run()).toBe("pending");
+      const job = (await store.getRetry("t1|g1"))!;
+      expect(job.sentCount).toBe(1);
+      expect(
+        await runJob({ deps, account: acct, destination: dest, job }),
+      ).toBe("delivered");
+      expect(telegramCalls.map((c) => c.startAt)).toEqual([0, 1]);
+    });
+
+    it("marks a Telegram destination broken on 403 and alerts once", async () => {
+      const { run, store, telegramCalls, acct, dest, deps } = await tgRun([
+        fail({ retryable: false, destinationBroken: true }),
+      ]);
+      await store.putRoute(route("r1", "t1"));
+      expect(await run()).toBe("failed");
+      expect((await store.getDestination("t1"))?.status).toBe("broken");
+      expect((await store.getRoute("r1"))?.paused).toBe(true);
+      expect(await store.getRetry("t1|g1")).toBeNull();
+      const alerts = await store.listAlerts("acct", 10);
+      expect(alerts).toHaveLength(1);
+      expect(alerts[0]!.message).toBe(
+        "Ferry can't post to Tg t1 anymore. Reconnect it.",
+      );
+      expect(telegramCalls.map((c) => c.chatId)).toEqual(["-100t1", "-100n"]);
+      await deliverToDestination({
+        account: acct,
+        destination: dest,
+        mirror: mirror({ groupKey: "g2", postIds: ["p2"] }),
+        deps,
+      });
+      expect(await store.listAlerts("acct", 10)).toHaveLength(1);
+      expect(telegramCalls.filter((c) => c.chatId === "-100n")).toHaveLength(1);
+    });
+
+    it("sends Reddit draft notices to a Telegram DM", async () => {
+      const { store, telegramCalls, deps, acct } = await tgRun();
+      const status = await deliverToDestination({
+        account: acct,
+        destination: redditDest("r1"),
+        mirror: mirror({ text: "A short title. And a body." }),
+        deps,
+      });
+      expect(status).toBe("draft_ready");
+      expect(await store.getDraft("tok1")).not.toBeNull();
+      expect(telegramCalls).toHaveLength(1);
+      expect(telegramCalls[0]!.chatId).toBe("-100n");
+      expect(JSON.stringify(telegramCalls[0]!.calls[0])).toContain(
+        "https://ferry.test/d/tok1/post",
+      );
+    });
+
+    it("retries a rejected notice once without buttons", async () => {
+      const { telegramCalls, deps, acct } = await tgRun([
+        fail({ retryable: false }),
+      ]);
+      await deliverToDestination({
+        account: acct,
+        destination: redditDest("r1"),
+        mirror: mirror(),
+        deps,
+      });
+      expect(telegramCalls).toHaveLength(2);
+      const retry = telegramCalls[1]!.calls[0]!;
+      expect(retry.params.reply_markup).toBeUndefined();
+      expect(retry.params.text).toContain(
+        "Open draft: https://ferry.test/d/tok1",
+      );
+    });
+
+    it("fails clearly when Telegram isn't configured", async () => {
+      const { run, telegramCalls, deps, store } = await tgRun();
+      deps.telegram = null;
+      expect(await run()).toBe("failed");
+      expect(telegramCalls).toHaveLength(0);
+      expect(
+        (await store.getActivity("acct", "g1"))?.deliveries[0]?.reason,
+      ).toBe("Telegram isn't set up on this Ferry.");
+    });
   });
 });

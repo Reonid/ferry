@@ -4,6 +4,8 @@ import {
   ACTIVITY_TTL_S,
   ALERT_DEDUPE_TTL_S,
   DRAFT_TTL_S,
+  TELEGRAM_LINK_TTL_S,
+  TELEGRAM_OFFSET_TTL_S,
 } from "@/lib/constants";
 import { createFakeRedis } from "./fake-redis";
 import type { RedisLike } from "./redis-like";
@@ -17,6 +19,8 @@ import type {
   RedditDraft,
   RetryJob,
   Route,
+  TelegramDestination,
+  TelegramLink,
 } from "@/lib/types";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -557,5 +561,66 @@ describe("deleteAccountData", () => {
       "b-j",
     ]);
     expect(await store.getRetry("b-gone")).not.toBeNull();
+  });
+});
+
+describe("telegram", () => {
+  const tgDest: TelegramDestination = {
+    id: "t1",
+    accountId: "acct",
+    kind: "telegram",
+    label: "My channel",
+    chatId: "-1001234567890",
+    chatType: "channel",
+    username: "mychannel",
+    status: "active",
+    createdAt: 5,
+  };
+  const link: TelegramLink = {
+    accountId: "acct",
+    purpose: "chat",
+    createdAt: 1_000_000,
+    destinationId: null,
+  };
+
+  it("round-trips a Telegram destination", async () => {
+    await store.putDestination(tgDest);
+    expect(await store.getDestination("t1")).toEqual(tgDest);
+    expect(await store.listDestinations("acct")).toEqual([tgDest]);
+  });
+
+  it("expires a Telegram link code after 15 minutes", async () => {
+    await store.putTelegramLink("abc", link);
+    expect(await store.getTelegramLink("abc")).toEqual(link);
+    vi.advanceTimersByTime(TELEGRAM_LINK_TTL_S * 1000 - 1000);
+    expect(await store.getTelegramLink("abc")).toEqual(link);
+    vi.advanceTimersByTime(1000);
+    expect(await store.getTelegramLink("abc")).toBeNull();
+    expect(TELEGRAM_LINK_TTL_S).toBe(15 * 60);
+  });
+
+  it("keeps a Telegram link code for the seconds it's given", async () => {
+    await store.putTelegramLink("abc", link, 60);
+    vi.advanceTimersByTime(59_000);
+    expect(await store.getTelegramLink("abc")).toEqual(link);
+    vi.advanceTimersByTime(1000);
+    expect(await store.getTelegramLink("abc")).toBeNull();
+  });
+
+  it("keeps the update offset per bot", async () => {
+    expect(await store.getTelegramOffset("123")).toBe(0);
+    await store.putTelegramOffset("123", 42);
+    expect(await store.getTelegramOffset("123")).toBe(42);
+    expect(await store.getTelegramOffset("456")).toBe(0);
+    expect(await redis.get("ferry:tg:offset:123")).toBe("42");
+  });
+
+  it("expires the update offset after a day", async () => {
+    await store.putTelegramOffset("123", 42);
+    vi.advanceTimersByTime(TELEGRAM_OFFSET_TTL_S * 1000 - 1000);
+    expect(await store.getTelegramOffset("123")).toBe(42);
+    vi.advanceTimersByTime(1000);
+    expect(await store.getTelegramOffset("123")).toBe(0);
+    expect(TELEGRAM_OFFSET_TTL_S).toBe(24 * 60 * 60);
   });
 });

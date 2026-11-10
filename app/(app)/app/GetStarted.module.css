@@ -1,0 +1,163 @@
+/*
+ * The steps to a first delivery: ports joined by a dashed green lane.
+ * Done ports are ticked; the current one is filled green.
+ */
+.start {
+  gap: var(--space-lg);
+}
+
+/* Once the first post has crossed, the guide becomes one ticked line. */
+.finished {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+}
+
+.finished .port {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.head {
+  display: grid;
+  gap: var(--space-2xs);
+}
+
+.steps {
+  display: grid;
+  gap: var(--space-md);
+  list-style: none;
+}
+
+.step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 2.25rem minmax(0, 1fr);
+  align-items: start;
+  align-content: start;
+  gap: var(--space-sm);
+}
+
+.port {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  border: 2px solid var(--color-rule-strong);
+  border-radius: 50%;
+  background: var(--color-surface);
+  color: var(--color-muted);
+  font-weight: 500;
+  line-height: 1;
+}
+
+.port svg {
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+}
+
+.done .port {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.current .port {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+  box-shadow: 0 0 0 4px var(--color-accent-soft);
+}
+
+/* The lane on to the next step: down on phones, across on wide screens. */
+.step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  inset-block: 2.25rem calc(-1 * var(--space-md));
+  inset-inline-start: calc(1.125rem - 1px);
+  inline-size: 2px;
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--color-accent) 0 7px,
+    transparent 7px 12px
+  );
+}
+
+.body {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2xs);
+  padding-block-start: 0.25rem;
+}
+
+.name {
+  font-weight: 500;
+}
+
+.done .name {
+  color: var(--color-muted);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(
+    in oklab,
+    var(--color-muted) 60%,
+    transparent
+  );
+}
+
+.text {
+  max-inline-size: 28em;
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+
+.body > a,
+.send {
+  margin-block-start: var(--space-xs);
+}
+
+.send {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2xs);
+}
+
+.icon {
+  inline-size: 1rem;
+  block-size: 1rem;
+}
+
+/* The other ways to finish step 1, for someone without a Discord server. */
+.alt {
+  max-inline-size: 28em;
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+
+@media (min-width: 768px) {
+  .steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-lg);
+  }
+
+  .step {
+    grid-template-columns: none;
+  }
+
+  .body {
+    padding-block-start: 0;
+  }
+
+  .step:not(:last-child)::after {
+    inset-block: calc(1.125rem - 1px) auto;
+    inset-inline: 2.25rem calc(-1 * var(--space-lg));
+    inline-size: auto;
+    block-size: 2px;
+    background: repeating-linear-gradient(
+      to right,
+      var(--color-accent) 0 7px,
+      transparent 7px 12px
+    );
+  }
+}

@@ -1,0 +1,161 @@
+/*
+ * The switcher: pill tabs and the chosen place's words on the left, the
+ * post as it lands there on a pastel card on the right, tinted after the
+ * place (violet for Discord, blue for Telegram, peach for Reddit).
+ */
+.switcher {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  align-items: center;
+  gap: var(--space-2xl);
+}
+
+.side {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: var(--space-lg);
+}
+
+.stage {
+  display: grid;
+  min-width: 0;
+}
+
+.intro {
+  margin-block-end: var(--space-xs);
+}
+
+/* Pill tabs: a row of choices, the chosen one white and raised. */
+.keys {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+  padding: var(--space-2xs);
+  border-radius: var(--radius-pill);
+  background: var(--color-paper-2);
+}
+
+.key {
+  min-block-size: 40px;
+  padding: 0 var(--space-md);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-ink-2);
+  font-size: var(--text-md);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.key:hover {
+  color: var(--color-ink);
+}
+
+.key[aria-selected="true"] {
+  background: var(--color-surface);
+  color: var(--color-ink);
+  box-shadow: var(--shadow-card);
+}
+
+.panel {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-md);
+  max-inline-size: 34rem;
+  color: var(--color-ink-2);
+  font-size: var(--text-body);
+  line-height: 1.5;
+}
+
+:global(.js) [data-state="inactive"] {
+  display: none;
+}
+
+/* What arrives there, with a green tick each. */
+.points {
+  display: grid;
+  gap: var(--space-xs);
+  list-style: none;
+  color: var(--color-ink);
+}
+
+.points li {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr);
+  gap: var(--space-sm);
+}
+
+.points svg {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  margin-block-start: 0.15em;
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.panelLink {
+  color: var(--color-accent);
+  font-weight: 500;
+}
+
+.panelLink:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* The card: the place's tint, the post sitting on it. */
+.band {
+  --t: var(--tint-ferry);
+  display: grid;
+  place-items: center;
+  padding: var(--space-2xl) var(--space-xl);
+  border-radius: var(--radius-panel);
+  background: var(--t);
+}
+
+.band > * {
+  inline-size: min(100%, 30rem);
+}
+
+.band[data-place="discord"] {
+  --t: var(--tint-discord);
+}
+
+.band[data-place="telegram"] {
+  --t: var(--tint-telegram);
+}
+
+.band[data-place="reddit"] {
+  --t: var(--tint-reddit);
+}
+
+@media (max-width: 60rem) {
+  .switcher {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-xl);
+  }
+
+  .band {
+    padding: var(--space-lg) var(--space-md);
+  }
+}
+
+/* Phones: three equal tabs on one row, each label whole. */
+@media (max-width: 30rem) {
+  .side {
+    justify-items: stretch;
+  }
+
+  .keys {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .key {
+    padding-inline: var(--space-xs);
+    white-space: nowrap;
+  }
+}

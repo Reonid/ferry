@@ -109,6 +109,33 @@ describe("layoutChart", () => {
     expect(chart.right[0]!.detail).toBe("Reconnect Discord");
   });
 
+  it("names Telegram ports, and asks to reconnect a broken one", () => {
+    const telegram: PublicDestination[] = [
+      {
+        id: "t1",
+        kind: "telegram",
+        label: "Ferry Updates",
+        status: "active",
+        chatType: "channel",
+      },
+      {
+        id: "t2",
+        kind: "telegram",
+        label: "Ferry Crew",
+        status: "broken",
+        chatType: "supergroup",
+      },
+    ];
+    const chart = layoutChart(
+      { channels, destinations: telegram, routes: [] },
+      WIDE,
+    );
+    expect(chart.right.map((p) => p.detail)).toEqual([
+      "Telegram",
+      "Reconnect Telegram",
+    ]);
+  });
+
   it("skips lanes whose channel or destination is gone", () => {
     const chart = layoutChart(
       {

@@ -12,6 +12,7 @@ import {
   mapLabel,
   newLandings,
   relativeTime,
+  routable,
   routeLabel,
   STATUS_LABEL,
 } from "./view";
@@ -106,6 +107,29 @@ describe("routeLabel", () => {
     expect(
       routeLabel({ ...route, channelIds: ["gone"] }, channels, destinations),
     ).toBe("Removed channel → #announcements");
+  });
+});
+
+describe("routable", () => {
+  it("takes chats and subreddits, and leaves Telegram DMs to alerts", () => {
+    const telegram = (
+      chatType: PublicDestination["chatType"],
+    ): PublicDestination => ({
+      id: `tg-${chatType}`,
+      kind: "telegram",
+      label: "Ferry Updates",
+      status: "active",
+      chatType,
+    });
+    expect(
+      [
+        ...destinations,
+        telegram("channel"),
+        telegram("group"),
+        telegram("supergroup"),
+        telegram("private"),
+      ].map(routable),
+    ).toEqual([true, true, true, true, true, false]);
   });
 });
 

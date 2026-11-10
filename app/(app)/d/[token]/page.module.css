@@ -1,0 +1,136 @@
+/* A working page: post in one tap, or copy each part by hand. */
+.draft {
+  max-inline-size: 44rem;
+  margin-inline: auto;
+  display: grid;
+  gap: var(--space-lg);
+}
+
+.intro {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-sm);
+}
+
+/* Ready to post, as a soft pill. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-2xs) var(--space-sm);
+  border-radius: var(--radius-pill);
+  background: var(--draft-bg);
+  color: var(--draft-ink);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+/* Under the heading: the draft's state, then its timing. */
+.status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-md);
+}
+
+.badgeIcon {
+  inline-size: 1rem;
+  block-size: 1rem;
+}
+
+.meta {
+  color: var(--color-muted);
+}
+
+/* The one tap, on a label of its own. */
+.post {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-sm);
+  padding: var(--space-lg);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+}
+
+.fields {
+  display: grid;
+  gap: var(--space-lg);
+  padding: var(--space-lg);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+}
+
+.images {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.imageList {
+  list-style: none;
+  display: grid;
+  gap: var(--space-md);
+}
+
+.image {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-xs) var(--space-md);
+  padding: var(--space-sm);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+}
+
+.imageLink {
+  color: var(--color-accent);
+}
+
+.imageLink {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-xs);
+  font-weight: 500;
+}
+
+.thumb {
+  display: block;
+  inline-size: 10rem;
+  block-size: 7.5rem;
+  object-fit: contain;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-input);
+  background: var(--color-paper-2);
+}
+
+.alt {
+  color: var(--color-muted);
+  overflow-wrap: anywhere;
+}
+
+.fallback {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-sm);
+  padding-block-start: var(--space-lg);
+  border-block-start: 1px solid var(--color-rule);
+  color: var(--color-muted);
+}
+
+.fallback > p {
+  max-inline-size: var(--measure);
+}
+
+.gone {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-md);
+}
+
+.gone > p {
+  max-inline-size: var(--measure);
+  color: var(--color-muted);
+  font-size: var(--text-lg);
+}

@@ -5,6 +5,7 @@ import {
   discordDest,
   makeDeps,
   redditDest,
+  telegramDest,
 } from "./delivery/test-support";
 
 describe("raiseAlert", () => {
@@ -81,6 +82,58 @@ describe("raiseAlert", () => {
         account: account({ notifyDestinationId: "n" }),
         key: "k",
         message: "m",
+        supportUrl: null,
+      }),
+    ).resolves.toBe(true);
+  });
+});
+
+describe("raiseAlert to Telegram", () => {
+  it("sends alerts to a Telegram DM", async () => {
+    const { deps, store, telegramCalls, calls } = makeDeps();
+    await store.putDestination(telegramDest("n", { chatType: "private" }));
+    await raiseAlert({
+      deps,
+      account: account({ notifyDestinationId: "n" }),
+      key: "k1",
+      message: "Post failed",
+      supportUrl: null,
+    });
+    expect(calls).toHaveLength(0);
+    expect(telegramCalls).toHaveLength(1);
+    expect(telegramCalls[0]).toMatchObject({
+      chatId: "-100n",
+      calls: [
+        { method: "sendMessage", params: { text: "Ferry alert: Post failed" } },
+      ],
+    });
+  });
+
+  it("skips a Telegram target when Telegram isn't configured", async () => {
+    const { deps, store, telegramCalls } = makeDeps();
+    deps.telegram = null;
+    await store.putDestination(telegramDest("n", { chatType: "private" }));
+    expect(
+      await raiseAlert({
+        deps,
+        account: account({ notifyDestinationId: "n" }),
+        key: "k1",
+        message: "x",
+        supportUrl: null,
+      }),
+    ).toBe(true);
+    expect(telegramCalls).toHaveLength(0);
+  });
+
+  it("swallows a throwing Telegram send", async () => {
+    const { deps, store } = makeDeps([], [new Error("boom")]);
+    await store.putDestination(telegramDest("n", { chatType: "private" }));
+    await expect(
+      raiseAlert({
+        deps,
+        account: account({ notifyDestinationId: "n" }),
+        key: "k1",
+        message: "x",
         supportUrl: null,
       }),
     ).resolves.toBe(true);

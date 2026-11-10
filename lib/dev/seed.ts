@@ -14,7 +14,7 @@ const MINUTE = 60 * 1000;
 /**
  * Seeds a realistic account for local development and browser tests.
  * Idempotent: every record has a fixed id, so re-running overwrites in place.
- * Never touches Buffer or Discord.
+ * Never touches Buffer, Discord or Telegram.
  */
 export async function seedDevAccount(
   store: Store,
@@ -85,6 +85,19 @@ export async function seedDevAccount(
     status: "active",
     createdAt: now - 3 * 24 * HOUR,
   });
+  await store.putDestination({
+    id: "dev-telegram",
+    accountId: id,
+    kind: "telegram",
+    label: "Ferry Updates",
+    chatId: "-1001234567890",
+    chatType: "channel",
+    username: "ferryupdates",
+    status: "active",
+    // A minute older than the others, so it heads the map's right shore and
+    // its lane runs clear of the two into #announcements.
+    createdAt: now - 3 * 24 * HOUR - MINUTE,
+  });
   await store.putRoute({
     id: "dev-route",
     accountId: id,
@@ -94,6 +107,16 @@ export async function seedDevAccount(
     activeSince: now - 3 * 24 * HOUR,
     paused: false,
     createdAt: now - 3 * 24 * HOUR,
+  });
+  await store.putRoute({
+    id: "dev-telegram-route",
+    accountId: id,
+    channelIds: ["dev-bluesky"],
+    tagNames: [],
+    destinationId: "dev-telegram",
+    activeSince: now - 2 * 24 * HOUR,
+    paused: false,
+    createdAt: now - 2 * 24 * HOUR,
   });
 
   const failedPost: MirrorPost = {
@@ -161,8 +184,28 @@ export async function seedDevAccount(
       },
     ],
   };
+  const toTelegram: ActivityEntry = {
+    groupKey: "dev-group-telegram",
+    excerpt: "Ferry now crosses to Telegram too. Same posts, one more shore.",
+    source: { service: "bluesky", name: "Ferry Dev" },
+    publishedAt: now - HOUR,
+    deliveries: [
+      {
+        destinationId: "dev-discord",
+        status: "delivered",
+        at: now - HOUR + MINUTE,
+      },
+      {
+        destinationId: "dev-telegram",
+        status: "delivered",
+        at: now - HOUR + MINUTE,
+        url: "https://t.me/ferryupdates/42",
+      },
+    ],
+  };
   await store.upsertActivity(id, delivered);
   await store.upsertActivity(id, failed);
+  await store.upsertActivity(id, toTelegram);
 
   const title = "We just opened the beta of our scheduling side project";
   const body = "We just opened the beta. Come break things with us.";

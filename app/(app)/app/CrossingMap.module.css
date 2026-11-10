@@ -1,0 +1,240 @@
+/*
+ * The crossing map: two shores and the water between them, seen from
+ * above. Buffer's shore is the funnel's pale yellow, the destinations'
+ * shore a pale green; open water is ruled with a light grid, and every
+ * route is a dashed green lane, as ferry routes are marked on a chart.
+ */
+.chart {
+  inline-size: 100%;
+}
+
+.svg {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+  font-family: var(--font-body);
+}
+
+.wide {
+  display: none;
+}
+
+.narrow {
+  max-inline-size: 32.5rem;
+  margin-inline: auto;
+}
+
+@media (min-width: 768px) {
+  .wide {
+    display: block;
+  }
+
+  .narrow {
+    display: none;
+  }
+}
+
+.deep {
+  fill: var(--map-water);
+}
+
+.graticule line {
+  stroke: var(--map-grid);
+  stroke-width: 1;
+}
+
+.shelf {
+  fill: var(--map-shelf);
+}
+
+.shallow {
+  fill: var(--map-shallow);
+}
+
+.contour {
+  fill: none;
+  stroke: var(--map-contour);
+  stroke-width: 0.75;
+  opacity: 0.6;
+}
+
+/* Each shore in its own tint: Buffer's on the left, the places on the right. */
+.land {
+  fill: var(--map-land-places);
+}
+
+[data-shore="buffer"] > .land {
+  fill: var(--map-land-buffer);
+}
+
+/* Buffer's shore line: the coast's own green by day, the funnel's butter
+   yellow at night, when the bank itself stays green-black. */
+[data-shore="buffer"] > .coast {
+  stroke: var(--map-coast-buffer);
+}
+
+.coast {
+  fill: none;
+  stroke: var(--map-coast);
+  stroke-width: 1.25;
+}
+
+.caption {
+  fill: var(--color-muted);
+  font-size: 13px;
+}
+
+.title {
+  fill: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.detail {
+  fill: var(--color-muted);
+  font-size: 12.5px;
+}
+
+.port circle {
+  fill: var(--color-surface);
+  stroke: var(--color-ink);
+  stroke-width: 2;
+}
+
+.idle circle {
+  stroke: var(--color-rule-strong);
+  stroke-width: 1.5;
+}
+
+.idle .title {
+  fill: var(--color-muted);
+}
+
+.water {
+  fill: var(--color-muted);
+  font-size: 18px;
+}
+
+.lane {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 2.5;
+  stroke-dasharray: 9 7;
+  stroke-linecap: round;
+}
+
+.paused {
+  stroke: var(--color-rule-strong);
+  stroke-dasharray: 1 7;
+}
+
+.broken {
+  stroke: var(--color-danger);
+  stroke-dasharray: 1 7;
+}
+
+/* The phone chart is drawn at its real size, so it needs smaller names. */
+.narrow .title {
+  font-size: 13px;
+}
+
+.narrow .detail,
+.narrow .caption {
+  font-size: 11.5px;
+}
+
+/* A crossing. Durations come from crossing.ts through --sail. */
+.wake {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 1 1;
+  stroke-dashoffset: 1;
+  animation:
+    wake var(--sail) var(--ease-sail) forwards,
+    fade 900ms var(--ease-out) var(--sail) forwards;
+}
+
+.boat {
+  opacity: 0;
+  animation: boat var(--sail) linear forwards;
+}
+
+/* The ferry from above: a white hull with a harbour-green rim and the
+   funnel's yellow on its deck, as on the logo. */
+.hull {
+  fill: var(--logo-ship);
+  stroke: var(--logo-ground);
+  stroke-width: 1.5;
+}
+
+.deck {
+  fill: var(--logo-funnel);
+  stroke: var(--logo-ground);
+  stroke-width: 0.75;
+}
+
+.ripple {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 2;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ripple 900ms var(--ease-out) forwards;
+}
+
+/* Reduced motion: the lane lights up and stays still. */
+.lit {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 6;
+  stroke-linecap: round;
+  opacity: 0.85;
+}
+
+@keyframes wake {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes fade {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes boat {
+  0% {
+    opacity: 0;
+  }
+  8%,
+  92% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes ripple {
+  from {
+    transform: scale(0.6);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(3.2);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boat,
+  .wake,
+  .ripple {
+    display: none;
+  }
+}

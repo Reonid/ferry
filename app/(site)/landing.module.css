@@ -1,0 +1,601 @@
+/*
+ * The landing's sections. The tokens and base rules live in app/styles;
+ * the bar is SiteNav.module.css, the switcher Places.module.css and the
+ * steps How.module.css.
+ */
+.main {
+  display: block;
+  font-size: var(--text-body);
+}
+
+/* ---------- Pill buttons: the yellow one, and an outline ---------- */
+
+.primary,
+.secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: 52px;
+  padding: 0 var(--space-lg);
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-md);
+  font-weight: 500;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: transform var(--dur-micro) var(--ease-out);
+}
+
+.primary {
+  background: var(--color-yellow);
+  color: var(--color-on-yellow);
+}
+
+.primary:hover {
+  background: var(--color-yellow-hover);
+}
+
+.secondary {
+  border-color: var(--color-ink);
+  color: var(--color-ink);
+}
+
+.secondary:hover {
+  background: var(--color-paper-2);
+}
+
+.primary:active,
+.secondary:active {
+  transform: translateY(1px);
+}
+
+/* ---------- The hero ---------- */
+
+.hero {
+  padding-block: var(--space-2xl) var(--space-xl);
+}
+
+/* A sign-in that didn't finish, or what Sign out left behind. */
+.notice {
+  max-inline-size: 46ch;
+  margin-block-end: var(--space-xl);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-card);
+  background: var(--color-paper-2);
+  font-size: var(--text-sm);
+}
+
+.notice a {
+  color: var(--color-accent);
+  font-weight: 500;
+}
+
+/* The headline on the left, its sentence and the way in on the right. */
+.heroText {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  align-items: end;
+  gap: var(--space-lg) var(--space-2xl);
+}
+
+.heroHead {
+  max-inline-size: 13ch;
+  font-size: var(--text-display);
+  line-height: 1.05;
+}
+
+.heroSide {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-lg);
+  padding-block-end: var(--space-xs);
+}
+
+.lead {
+  color: var(--color-ink-2);
+  font-size: var(--text-lead);
+  line-height: 1.5;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.promise {
+  display: grid;
+  grid-template-columns: 1rem minmax(0, 1fr);
+  gap: var(--space-xs);
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+.lock {
+  inline-size: 1rem;
+  block-size: 1rem;
+  margin-block-start: 0.1rem;
+}
+
+/* The product, large, on a mint card: the dashboard's own crossing map. */
+.heroVisual {
+  margin-block-start: var(--space-2xl);
+  padding: var(--space-xl);
+  border-radius: var(--radius-panel);
+  background: var(--tint-ferry);
+}
+
+.window {
+  display: grid;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-md) var(--space-lg);
+  border-radius: calc(var(--radius-card) + var(--space-xs));
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lift);
+}
+
+.windowBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-2xs) var(--space-xs) 0;
+}
+
+.windowTitle {
+  color: var(--color-ink-2);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.replay {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-block-size: 36px;
+  padding: 0 var(--space-md);
+  border: 1px solid var(--color-rule-strong);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform var(--dur-micro) var(--ease-out);
+}
+
+.replay svg {
+  inline-size: 1rem;
+  block-size: 1rem;
+}
+
+.replay:hover {
+  background: var(--color-paper-2);
+}
+
+.replay:active {
+  transform: translateY(1px);
+}
+
+.replay[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.replay[aria-disabled="true"]:active {
+  transform: none;
+}
+
+.map {
+  overflow: hidden;
+  border-radius: var(--radius-input);
+  background: var(--map-water);
+  box-shadow: 0 0 0 1px var(--color-rule);
+}
+
+/* ---------- Sections ---------- */
+
+.sectionHead {
+  max-inline-size: 18ch;
+  font-size: var(--text-section);
+}
+
+.sectionLine {
+  max-inline-size: 46ch;
+  margin-block-start: var(--space-md);
+  color: var(--color-ink-2);
+  font-size: var(--text-lead);
+  line-height: 1.5;
+}
+
+/* A head on the left, its one line on the right. */
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+  align-items: end;
+  gap: var(--space-md) var(--space-2xl);
+  margin-block-end: var(--space-2xl);
+}
+
+.splitLine {
+  color: var(--color-ink-2);
+  font-size: var(--text-lead);
+  line-height: 1.5;
+}
+
+.splitLine a,
+.faqHead a,
+.faq a,
+.textLink {
+  color: var(--color-accent);
+  font-weight: 500;
+}
+
+.splitLine a:hover,
+.faqHead a:hover,
+.faq a:hover,
+.textLink:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* The board's numbers, side by side, ruled apart. */
+.votes {
+  padding-block: var(--section-gap-s);
+}
+
+.figures {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  list-style: none;
+}
+
+.figure {
+  display: grid;
+  align-content: start;
+  gap: var(--space-xs);
+  padding-inline: var(--space-xl);
+  border-inline-start: 1px solid var(--color-rule);
+}
+
+.figure:first-child {
+  padding-inline-start: 0;
+  border-inline-start: 0;
+}
+
+.count {
+  font-size: var(--text-display-s);
+  letter-spacing: var(--tracking-display);
+  line-height: 1;
+}
+
+.unit {
+  margin-inline-start: var(--space-xs);
+  color: var(--color-muted);
+  font-size: var(--text-md);
+  letter-spacing: 0;
+}
+
+.figureName {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-block-start: var(--space-sm);
+  font-size: var(--text-lg);
+  font-weight: 500;
+}
+
+.figureDoes {
+  color: var(--color-muted);
+}
+
+.places {
+  padding-block: var(--section-gap-s);
+}
+
+.how {
+  padding-block: var(--section-gap-s);
+}
+
+/* ---------- A feature: words and a check-list beside a pastel card ---------- */
+
+.app {
+  padding-block: var(--section-gap-s);
+}
+
+.feature {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  align-items: center;
+  gap: var(--space-2xl);
+}
+
+.featureText {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-lg);
+  color: var(--color-ink-2);
+  line-height: 1.5;
+}
+
+.points {
+  display: grid;
+  gap: var(--space-xs);
+  list-style: none;
+  color: var(--color-ink);
+}
+
+.points li {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr);
+  gap: var(--space-sm);
+}
+
+.tick {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  margin-block-start: 0.15em;
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* The captures on a butter card: Activity, with the drafts tray laid over
+   its corner. The tray is 62% of the card's width and 1222x326, so it
+   stands 16.5% of the card's width tall: a bottom padding of 13.5% (a
+   percentage of that same width) lets it overlap Activity's foot by a
+   sliver at every width. Re-shot captures with another shape need it
+   recomputed. */
+.featureCard {
+  --tray-room: calc(var(--space-lg) + 13.5%);
+  position: relative;
+  display: grid;
+  padding: var(--space-2xl) var(--space-2xl) var(--tray-room);
+  border-radius: var(--radius-panel);
+  background: var(--tint-buffer);
+}
+
+.shot {
+  inline-size: 100%;
+  block-size: auto;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-lift);
+}
+
+.shotOver {
+  position: absolute;
+  inset-inline-end: var(--space-lg);
+  inset-block-end: var(--space-lg);
+  inline-size: 62%;
+}
+
+/* ---------- Questions ---------- */
+
+.questions {
+  padding-block: var(--section-gap-s) var(--section-gap);
+}
+
+.faqGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+  gap: var(--space-xl) var(--space-2xl);
+}
+
+.faqHead {
+  display: grid;
+  align-content: start;
+  gap: var(--space-md);
+  color: var(--color-ink-2);
+}
+
+.faq {
+  display: grid;
+  border-block-start: 1px solid var(--color-rule);
+}
+
+.faqItem {
+  border-block-end: 1px solid var(--color-rule);
+}
+
+.faqItem summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  padding-block: var(--space-lg);
+  cursor: pointer;
+  list-style: none;
+}
+
+.faqItem summary::-webkit-details-marker {
+  display: none;
+}
+
+.faqItem summary::after {
+  content: "";
+  flex: none;
+  inline-size: 0.6rem;
+  block-size: 0.6rem;
+  margin-inline-end: var(--space-xs);
+  border: solid var(--color-ink-2);
+  border-width: 0 1.5px 1.5px 0;
+  transform: translateY(-0.2rem) rotate(45deg);
+  transition: transform var(--dur-short) var(--ease-out);
+}
+
+.faqItem[open] summary::after {
+  transform: translateY(0.1rem) rotate(-135deg);
+}
+
+.faqItem summary:hover h3 {
+  color: var(--color-accent);
+}
+
+.faqItem h3 {
+  font-size: var(--text-lg);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+}
+
+.faqItem p {
+  max-inline-size: 62ch;
+  padding-block-end: var(--space-lg);
+  color: var(--color-ink-2);
+}
+
+/* ---------- The close and the footer ---------- */
+
+.footer {
+  margin-block-start: auto;
+}
+
+/* The close: a mint card with the way in, before the footer's green. */
+.close {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg) var(--space-2xl);
+  margin-block-end: var(--space-3xl);
+  padding: var(--space-2xl);
+  border-radius: var(--radius-panel);
+  background: var(--tint-ferry);
+}
+
+.closeHead {
+  max-inline-size: 20ch;
+  font-size: var(--text-section);
+}
+
+.closeLine {
+  margin-block-start: var(--space-sm);
+  color: var(--color-ink-2);
+  font-size: var(--text-lead);
+}
+
+.footBand {
+  padding-block: var(--space-2xl);
+  background: var(--color-harbour);
+  color: var(--color-on-harbour);
+}
+
+.foot {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: var(--space-lg) var(--space-2xl);
+}
+
+.footAbout {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-md);
+  color: var(--color-harbour-muted);
+}
+
+.footBrand {
+  display: inline-flex;
+  border-radius: var(--radius-input);
+}
+
+.footBrand:focus-visible,
+.footBand a:focus-visible {
+  outline-color: var(--color-mint);
+}
+
+.footLinks {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: start;
+  justify-content: flex-end;
+  gap: var(--space-xs) var(--space-lg);
+  list-style: none;
+}
+
+.footLinks a {
+  color: var(--color-on-harbour);
+  text-decoration: none;
+}
+
+.footLinks a:hover {
+  text-decoration: underline;
+}
+
+.disclaimer {
+  grid-column: 1 / -1;
+  padding-block-start: var(--space-lg);
+  border-block-start: 1px solid var(--color-harbour-2);
+  color: var(--color-on-harbour);
+}
+
+/* ---------- Narrower screens ---------- */
+
+@media (max-width: 60rem) {
+  .heroText,
+  .split,
+  .feature,
+  .faqGrid,
+  .foot {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .heroVisual {
+    margin-block-start: var(--space-xl);
+    padding: var(--space-md);
+  }
+
+  .split {
+    margin-block-end: var(--space-xl);
+  }
+
+  .featureCard {
+    padding: var(--space-lg) var(--space-lg) var(--tray-room);
+  }
+
+  .footLinks {
+    justify-content: flex-start;
+  }
+
+  .close {
+    padding: var(--space-xl) var(--space-lg);
+  }
+}
+
+@media (max-width: 40rem) {
+  .figures {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .figure,
+  .figure:first-child {
+    padding: var(--space-lg) 0;
+    border-inline-start: 0;
+    border-block-start: 1px solid var(--color-rule);
+  }
+
+  .figure:first-child {
+    padding-block-start: 0;
+    border-block-start: 0;
+  }
+
+  .heroVisual {
+    padding: var(--space-xs);
+    border-radius: var(--radius-card);
+  }
+
+  .window {
+    padding: var(--space-xs) var(--space-xs) var(--space-md);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .primary,
+  .secondary,
+  .replay,
+  .faqItem summary::after {
+    transition: none;
+  }
+}

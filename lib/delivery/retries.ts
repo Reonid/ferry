@@ -37,7 +37,7 @@ export async function processRetries(args: {
         if (
           !account ||
           !destination ||
-          (destination.kind === "discord" && destination.status === "broken")
+          (destination.kind !== "reddit" && destination.status === "broken")
         ) {
           await deps.store.deleteRetry(job.id);
           continue;
@@ -79,7 +79,7 @@ export async function retryFailedJob(args: {
   if (
     !account ||
     !destination ||
-    (destination.kind === "discord" && destination.status === "broken")
+    (destination.kind !== "reddit" && destination.status === "broken")
   ) {
     return false;
   }

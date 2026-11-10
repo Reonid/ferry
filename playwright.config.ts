@@ -32,6 +32,11 @@ export default defineConfig({
       UPSTASH_REDIS_REST_TOKEN: "",
       KV_REST_API_URL: "",
       KV_REST_API_TOKEN: "",
+      // Fixed, so values in .env.local never apply either. Linking a chat
+      // makes no Bot API call, and the tests answer /api/telegram/check
+      // themselves, so this token never reaches Telegram.
+      TELEGRAM_BOT_USERNAME: "FerryTestBot",
+      TELEGRAM_BOT_TOKEN: "test-token",
     },
   },
 });

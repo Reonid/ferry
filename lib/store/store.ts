@@ -5,6 +5,8 @@ import {
   ALERTS_KEPT,
   DRAFT_TTL_S,
   RETRY_JOB_TTL_S,
+  TELEGRAM_LINK_TTL_S,
+  TELEGRAM_OFFSET_TTL_S,
 } from "@/lib/constants";
 import type {
   Account,
@@ -16,6 +18,7 @@ import type {
   RedditDraft,
   RetryJob,
   Route,
+  TelegramLink,
   SyncState,
   TokenSet,
 } from "@/lib/types";
@@ -40,6 +43,17 @@ export interface Store {
   getDestination(destId: string): Promise<Destination | null>;
   putDestination(d: Destination): Promise<void>;
   deleteDestination(id: string, destId: string): Promise<void>;
+  /** Kept for `ttlSeconds`, the code's full life unless given. */
+  putTelegramLink(
+    code: string,
+    link: TelegramLink,
+    ttlSeconds?: number,
+  ): Promise<void>;
+  getTelegramLink(code: string): Promise<TelegramLink | null>;
+  /** Per bot, by the public id that starts its token. */
+  getTelegramOffset(botId: string): Promise<number>;
+  /** Kept for a day, as long as Telegram keeps updates. */
+  putTelegramOffset(botId: string, n: number): Promise<void>;
   getSyncState(id: string): Promise<SyncState>;
   putSyncState(id: string, s: SyncState): Promise<void>;
   scheduleSync(id: string, at: number): Promise<void>;
@@ -86,6 +100,8 @@ const k = {
   retry: (jobId: string) => `ferry:retry:${jobId}`,
   act: (id: string, groupKey: string) => `ferry:act:${id}:${groupKey}`,
   acts: (id: string) => `ferry:acts:${id}`,
+  tgLink: (code: string) => `ferry:tglink:${code}`,
+  tgOffset: (botId: string) => `ferry:tg:offset:${botId}`,
   draft: (token: string) => `ferry:draft:${token}`,
   drafts: (id: string) => `ferry:drafts:${id}`,
   alertKey: (id: string, key: string) => `ferry:alertkey:${id}:${key}`,
@@ -221,6 +237,15 @@ export function createStore(redis: RedisLike, key: Buffer): Store {
       await setJson(k.dest(d.id), sealDestination(d));
       await redis.sadd(k.dests(d.accountId), d.id);
     },
+    putTelegramLink: (code, link, ttlSeconds = TELEGRAM_LINK_TTL_S) =>
+      setJson(k.tgLink(code), link, { ex: ttlSeconds }),
+    getTelegramLink: (code) => getJson<TelegramLink>(k.tgLink(code)),
+    async getTelegramOffset(botId) {
+      return (await getJson<number>(k.tgOffset(botId))) ?? 0;
+    },
+    putTelegramOffset: (botId, n) =>
+      setJson(k.tgOffset(botId), n, { ex: TELEGRAM_OFFSET_TTL_S }),
+
     async deleteDestination(id, destId) {
       await redis.srem(k.dests(id), destId);
       await del(k.dest(destId));
@@ -409,9 +434,10 @@ export function createStore(redis: RedisLike, key: Buffer): Store {
       if (ownJobIds.length > 0) await redis.zrem(k.retryDue, ...ownJobIds);
       await redis.zrem(k.syncDue, id);
 
-      // Alert dedupe keys (ferry:alertkey:*) and daily call counters
-      // (ferry:calls:*) are left to expire on their own TTLs: they hold only
-      // IDs and counts, and cannot be enumerated without a key scan.
+      // Alert dedupe keys (ferry:alertkey:*), daily call counters
+      // (ferry:calls:*) and Telegram link codes (ferry:tglink:*) are left to
+      // expire on their own TTLs: they hold only IDs and counts, and cannot
+      // be enumerated without a key scan.
       await del(
         k.account(id),
         k.tokens(id),

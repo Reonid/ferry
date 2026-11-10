@@ -15,6 +15,7 @@ import {
   MAX_ATTEMPTS,
   RETRY_DELAYS_MS,
   RETRY_JOB_TTL_S,
+  TELEGRAM_LINK_TTL_S,
   TOKEN_REQUEST_TIMEOUT_MS,
 } from "@/lib/constants";
 
@@ -40,6 +41,7 @@ describe("constants", () => {
     expect(RETRY_JOB_TTL_S).toBe(DAY);
     expect(ALERT_DEDUPE_TTL_S).toBe(7 * DAY);
     expect(ALERTS_KEPT).toBe(20);
+    expect(TELEGRAM_LINK_TTL_S).toBe(15 * 60);
     expect(Math.max(LOCK_SYNC_MS, LOCK_REFRESH_MS)).toBeLessThanOrEqual(60_000);
   });
 

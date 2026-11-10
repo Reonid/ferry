@@ -55,6 +55,12 @@ export function validateRouteInput(args: {
   if (!destination)
     return { ok: false, error: "Pick one of your destinations." };
   if (destination.status !== "active") return { ok: false, error: RECONNECT };
+  if (destination.kind === "telegram" && destination.chatType === "private")
+    return {
+      ok: false,
+      error:
+        "Pick a channel or group for posts. Direct messages are for alerts only.",
+    };
   const tagNames = [
     ...new Set(
       args.tagNames.map((t) => t.trim().toLowerCase()).filter((t) => t !== ""),
@@ -236,8 +242,8 @@ export async function setNotifyDestination(
   if (!account) return fail("Sign in again to change this.");
   if (destId !== null) {
     const dest = await ownDestination(store, accountId, destId);
-    if (dest?.kind !== "discord")
-      return fail("Pick a Discord channel for alerts.");
+    if (dest?.kind !== "discord" && dest?.kind !== "telegram")
+      return fail("Pick a Discord or Telegram destination for alerts.");
   }
   await store.putAccount({ ...account, notifyDestinationId: destId });
   return { ok: true };
@@ -344,7 +350,7 @@ export async function sendLatestPost(
   });
   return status === "delivered" || status === "draft_ready"
     ? { ok: true, message: "Sent your latest post." }
-    : fail("That didn't go through. Check the activity below.");
+    : fail("That didn't go through. Activity has the details.");
 }
 
 export async function retryJob(
