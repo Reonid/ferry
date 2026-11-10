@@ -28,10 +28,15 @@ const SEES = [
   "Your Reddit drafts",
   "Alerts that need you",
 ];
-const CANNOT = [
+/** True whatever the owner answers. */
+const NEVER = ["Touch your Buffer account", "See sign-in tokens or webhooks"];
+const CANNOT_READ_ONLY = [
   "Change routes or destinations, or post anywhere",
-  "Touch your Buffer account",
-  "See sign-in tokens or webhooks",
+  ...NEVER,
+];
+const CANNOT_WITH_CHANGES = [
+  "Delete routes or destinations, or connect new ones",
+  ...NEVER,
 ];
 
 const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]"]);
@@ -177,38 +182,61 @@ export default async function AuthorizePage(
       </div>
       <div className={styles.group}>
         <h2 className={ui.label}>It can&apos;t</h2>
-        <List items={CANNOT} icon={LockIcon} />
+        <List
+          items={request.offerWrite ? CANNOT_WITH_CHANGES : CANNOT_READ_ONLY}
+          icon={LockIcon}
+        />
       </div>
-      <p className={ui.hint}>
-        Signed in with Buffer{account.name ? ` as ${account.name}` : ""}. You
-        can disconnect {app} at any time under Settings on your dashboard.
-      </p>
       <form
         method="post"
         action={`/api/oauth/authorize?${query}`}
-        className={styles.actions}
+        className={styles.answer}
       >
         <input
           type="hidden"
           name="account"
           value={consentBinding(key, account.accountId)}
         />
-        <button
-          type="submit"
-          name="decision"
-          value="allow"
-          className={`${ui.button} ${ui.primary} ${ui.large}`}
-        >
-          Allow
-        </button>
-        <button
-          type="submit"
-          name="decision"
-          value="deny"
-          className={`${ui.button} ${ui.large}`}
-        >
-          Cancel
-        </button>
+        {request.offerWrite && (
+          <div className={styles.changes}>
+            <label className={styles.choice}>
+              <input
+                type="checkbox"
+                name="write"
+                value="yes"
+                aria-describedby="changes-detail"
+              />
+              Also let {app} make changes
+            </label>
+            <p id="changes-detail" className={ui.hint}>
+              It could pause and resume routes, add routes, retry deliveries
+              that failed, and send a route&apos;s latest post as a test. Leave
+              this off and it can only read.
+            </p>
+          </div>
+        )}
+        <p className={ui.hint}>
+          Signed in with Buffer{account.name ? ` as ${account.name}` : ""}. You
+          can disconnect {app} at any time under Settings on your dashboard.
+        </p>
+        <div className={styles.actions}>
+          <button
+            type="submit"
+            name="decision"
+            value="allow"
+            className={`${ui.button} ${ui.primary} ${ui.large}`}
+          >
+            Allow
+          </button>
+          <button
+            type="submit"
+            name="decision"
+            value="deny"
+            className={`${ui.button} ${ui.large}`}
+          >
+            Cancel
+          </button>
+        </div>
       </form>
     </Screen>
   );

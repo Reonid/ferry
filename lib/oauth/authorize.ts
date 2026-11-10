@@ -1,5 +1,5 @@
 import { readClient, redirectUriAllowed, type OAuthClient } from "./clients";
-import { MCP_SCOPE, sameResource } from "./metadata";
+import { MCP_SCOPE, MCP_WRITE_SCOPE, sameResource } from "./metadata";
 
 /** A checked request to connect an app, as the consent screen shows it. */
 export interface AuthorizationRequest {
@@ -9,7 +9,10 @@ export interface AuthorizationRequest {
   redirectUriSent: boolean;
   state: string | null;
   codeChallenge: string;
+  /** What every connection gets. Consent may add the write scope. */
   scope: string;
+  /** Whether the consent screen offers to let the app make changes. */
+  offerWrite: boolean;
 }
 
 export type AuthorizationCheck =
@@ -115,7 +118,12 @@ export function checkAuthorizationRequest(
   if (!params.getAll("resource").every((r) => sameResource(r, ctx.resource)))
     return fail("invalid_target", `Ferry's MCP server is ${ctx.resource}.`);
 
-  // Unknown scopes are dropped: reading Ferry is the only thing to grant.
+  // Every connection reads, and unknown scopes are dropped. Changes are on
+  // offer when the app asks for them, or names no scope, which RFC 6749 3.3
+  // leaves to Ferry: the owner decides on the consent screen either way.
+  const scope = single(params, "scope");
+  const offerWrite =
+    scope === null || (scope?.split(" ").includes(MCP_WRITE_SCOPE) ?? false);
   return {
     ok: true,
     request: {
@@ -125,6 +133,7 @@ export function checkAuthorizationRequest(
       state,
       codeChallenge,
       scope: MCP_SCOPE,
+      offerWrite,
     },
   };
 }

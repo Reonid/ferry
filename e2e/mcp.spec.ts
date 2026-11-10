@@ -36,10 +36,12 @@ async function registerApp(
   return (await res.json()).client_id as string;
 }
 
+/** With no scope, an app asks for all Ferry has, as a client may. */
 function authorizePath(
   clientId: string,
   challenge: string,
   redirectUri = CALLBACK,
+  scope?: string,
 ): string {
   const query = new URLSearchParams({
     response_type: "code",
@@ -49,6 +51,7 @@ function authorizePath(
     code_challenge_method: "S256",
     state: "e2e-state",
     resource: `${BASE}/mcp`,
+    ...(scope === undefined ? {} : { scope }),
   });
   return `/oauth/authorize?${query}`;
 }
@@ -154,6 +157,30 @@ test("names the site an app returns to, and cautions about unknown ones", async 
   ).toBeVisible();
 });
 
+test("offers changes unticked, and only to an app that asks for them", async ({
+  page,
+}) => {
+  const clientId = await registerApp(page.request);
+  await signInTo(page, authorizePath(clientId, pkce().challenge));
+  const main = page.getByRole("main");
+  const box = main.getByRole("checkbox", {
+    name: "Also let Claude make changes",
+  });
+  await expect(box).not.toBeChecked();
+  await expect(box).toHaveAccessibleDescription(/pause and resume routes/);
+  await expect(
+    main.getByText("Delete routes or destinations, or connect new ones"),
+  ).toBeVisible();
+
+  await page.goto(
+    authorizePath(clientId, pkce().challenge, CALLBACK, "ferry:read"),
+  );
+  await expect(main.getByRole("checkbox")).toHaveCount(0);
+  await expect(
+    main.getByText("Change routes or destinations, or post anywhere"),
+  ).toBeVisible();
+});
+
 test("keeps a known app's bad request on Ferry instead of sending it on", async ({
   page,
 }) => {
@@ -218,6 +245,8 @@ test("the consent screen passes axe in light and dark, and takes the keyboard", 
     for (const colorScheme of ["light", "dark"] as const) {
       await page.emulateMedia({ colorScheme });
       await page.goto(target);
+      // One screen ticked, so axe sees the box both ways.
+      if (target === cautioned) await page.getByRole("checkbox").check();
       const { violations } = await new AxeBuilder({ page }).analyze();
       expect(
         violations.map((v) => ({
@@ -228,6 +257,12 @@ test("the consent screen passes axe in light and dark, and takes the keyboard", 
       ).toEqual([]);
     }
   await page.goto(path);
+  const box = page.getByRole("checkbox", {
+    name: "Also let Claude make changes",
+  });
+  await tabTo(page, box);
+  await page.keyboard.press("Space");
+  await expect(box).toBeChecked();
   await tabTo(page, page.getByRole("button", { name: "Allow" }));
   await tabTo(page, page.getByRole("button", { name: "Cancel" }));
 });

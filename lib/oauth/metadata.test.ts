@@ -13,7 +13,7 @@ describe("discovery documents", () => {
     expect(protectedResourceMetadata(BASE)).toMatchObject({
       resource: `${BASE}/mcp`,
       authorization_servers: [BASE],
-      scopes_supported: ["ferry:read"],
+      scopes_supported: ["ferry:read", "ferry:write"],
       bearer_methods_supported: ["header"],
     });
     expect(oauthUrls(BASE).resourceMetadata).toBe(
@@ -28,6 +28,7 @@ describe("discovery documents", () => {
       authorization_endpoint: `${BASE}/oauth/authorize`,
       token_endpoint: `${BASE}/api/oauth/token`,
       registration_endpoint: `${BASE}/api/oauth/register`,
+      scopes_supported: ["ferry:read", "ferry:write"],
       response_types_supported: ["code"],
       grant_types_supported: ["authorization_code", "refresh_token"],
       code_challenge_methods_supported: ["S256"],

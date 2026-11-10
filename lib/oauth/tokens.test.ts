@@ -39,6 +39,7 @@ function request(
     state: "s",
     codeChallenge: challenge,
     scope: "ferry:read",
+    offerWrite: false,
     ...over,
   };
 }

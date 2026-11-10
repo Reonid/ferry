@@ -203,7 +203,7 @@ describe("/mcp", () => {
     });
     expect(res.status).toBe(401);
     expect(res.headers.get("www-authenticate")).toBe(
-      `Bearer realm="Ferry", resource_metadata="${BASE}/.well-known/oauth-protected-resource/mcp", scope="ferry:read"`,
+      `Bearer realm="Ferry", resource_metadata="${BASE}/.well-known/oauth-protected-resource/mcp", scope="ferry:read ferry:write"`,
     );
     expect(res.headers.get("access-control-expose-headers")).toContain(
       "WWW-Authenticate",
