@@ -169,3 +169,17 @@ describe("deleteAccountData and MCP", () => {
     expect(await store.getAccessToken("access-other")).not.toBeNull();
   });
 });
+
+describe("replaceGrant", () => {
+  it("rewrites a connection that exists, and refuses one that's gone", async () => {
+    await store.putGrant(grant("g1"));
+    expect(await store.replaceGrant({ ...grant("g1"), refreshedAt: 5 })).toBe(
+      true,
+    );
+    expect((await store.getGrant("g1"))?.refreshedAt).toBe(5);
+    await store.deleteGrant(grant("g1"));
+    expect(await store.replaceGrant(grant("g1"))).toBe(false);
+    expect(await store.getGrant("g1")).toBeNull();
+    expect(await redis.smembers("ferry:mcp:grants:a")).toEqual([]);
+  });
+});

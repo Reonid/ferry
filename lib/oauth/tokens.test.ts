@@ -499,3 +499,78 @@ describe("checkAccessToken", () => {
     ).toBe(false);
   });
 });
+
+describe("Disconnect racing a refresh", () => {
+  /** A context whose store runs `meanwhile` right after one call, as a race would. */
+  function racing(
+    method: "getGrant" | "replaceGrant",
+    meanwhile: () => Promise<void>,
+  ) {
+    const store = { ...fx.store };
+    let fired = false;
+    const original = fx.store[method] as (...args: never[]) => Promise<unknown>;
+    (store as Record<string, unknown>)[method] = async (...args: never[]) => {
+      const result = await original(...args);
+      if (!fired) {
+        fired = true;
+        await meanwhile();
+      }
+      return result;
+    };
+    return { ...fx.ctx(), store };
+  }
+  const disconnectAll = async () => {
+    for (const g of await fx.store.listGrants("acct"))
+      await fx.store.deleteGrant(g);
+  };
+  const refreshWith = (ctx: ReturnType<typeof fx.ctx>, token: string) =>
+    tokenRequest(
+      ctx,
+      new URLSearchParams({
+        grant_type: "refresh_token",
+        client_id: claude.clientId,
+        refresh_token: token,
+      }),
+      null,
+    );
+
+  it("stays disconnected when Disconnect lands before the refresh writes", async () => {
+    const first = await connect();
+    const result = await refreshWith(
+      racing("getGrant", disconnectAll),
+      first.refresh_token,
+    );
+    expect(errorOf(result)).toBe("invalid_grant");
+    expect(await fx.store.listGrants("acct")).toEqual([]);
+  });
+
+  it("refuses the new token when Disconnect lands after the refresh writes", async () => {
+    const first = await connect();
+    const result = await refreshWith(
+      racing("replaceGrant", disconnectAll),
+      first.refresh_token,
+    );
+    // The pair may go out, but the connection is gone, so neither works.
+    if (result.ok) {
+      expect(
+        (await checkAccessToken(fx.ctx(), `Bearer ${result.body.access_token}`))
+          .ok,
+      ).toBe(false);
+      expect(
+        errorOf(await refreshWith(fx.ctx(), result.body.refresh_token)),
+      ).toBe("invalid_grant");
+    }
+    expect(await fx.store.listGrants("acct")).toEqual([]);
+  });
+
+  it("refuses an access token its connection no longer holds", async () => {
+    const { access_token } = await connect();
+    const [grant] = await fx.store.listGrants("acct");
+    if (!grant) throw new Error("no grant");
+    // The grant moved on, but the old token's own key is still there.
+    await fx.store.putGrant({ ...grant, accessHash: "something-else" });
+    expect(
+      (await checkAccessToken(fx.ctx(), `Bearer ${access_token}`)).ok,
+    ).toBe(false);
+  });
+});

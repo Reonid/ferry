@@ -37,6 +37,7 @@ export function createFakeRedis(): RedisLike {
     async set(key, value, opts) {
       purge(key);
       if (opts?.nx && exists(key)) return null;
+      if (opts?.xx && !exists(key)) return null;
       remove(key);
       strings.set(key, value);
       if (opts?.ex !== undefined) {

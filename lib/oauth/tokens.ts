@@ -164,28 +164,33 @@ function tokenBody(access: string, refresh: string, scope: string) {
   };
 }
 
-/** Saves a grant's current pair of tokens and returns them. */
-async function saveTokens(
-  ctx: OAuthContext,
-  grant: Omit<McpGrant, "accessHash" | "refreshHash">,
-): Promise<TokenResult> {
+/** A fresh pair for `grant`: the raw tokens, and the grant holding their hashes. */
+function mintTokens(grant: Omit<McpGrant, "accessHash" | "refreshHash">) {
   const access = ACCESS_PREFIX + newSecret();
   const refresh = REFRESH_PREFIX + newSecret();
-  const saved: McpGrant = {
+  const minted: McpGrant = {
     ...grant,
     accessHash: hashSecret(access),
     refreshHash: hashSecret(refresh),
   };
-  await ctx.store.putGrant(saved);
-  await ctx.store.putAccessToken(saved.accessHash, {
-    grantId: saved.id,
-    accountId: saved.accountId,
-    scope: saved.scope,
-    resource: saved.resource,
+  return { access, refresh, grant: minted };
+}
+
+/** Files a minted pair under its hashes, once its grant is saved, and returns it. */
+async function issueTokens(
+  ctx: OAuthContext,
+  minted: ReturnType<typeof mintTokens>,
+): Promise<TokenResult> {
+  const { grant } = minted;
+  await ctx.store.putAccessToken(grant.accessHash, {
+    grantId: grant.id,
+    accountId: grant.accountId,
+    scope: grant.scope,
+    resource: grant.resource,
     expiresAt: ctx.now + MCP_ACCESS_TTL_S * 1000,
   });
-  await ctx.store.putRefreshToken(saved.refreshHash, saved.id);
-  return tokenBody(access, refresh, saved.scope);
+  await ctx.store.putRefreshToken(grant.refreshHash, grant.id);
+  return tokenBody(minted.access, minted.refresh, grant.scope);
 }
 
 async function exchangeCode(
@@ -216,7 +221,7 @@ async function exchangeCode(
     return fail("invalid_grant", "code_verifier doesn't match the challenge.");
   if (!(await ctx.store.getAccount(record.accountId))) return gone;
 
-  const result = await saveTokens(ctx, {
+  const minted = mintTokens({
     id: newId(),
     accountId: record.accountId,
     clientId: client.clientId,
@@ -227,6 +232,8 @@ async function exchangeCode(
     createdAt: ctx.now,
     refreshedAt: ctx.now,
   });
+  await ctx.store.putGrant(minted.grant);
+  const result = await issueTokens(ctx, minted);
   // The newest connections stay; an 11th disconnects the oldest.
   const grants = await ctx.store.listGrants(record.accountId);
   for (const old of grants.slice(
@@ -249,9 +256,11 @@ async function refresh(
     "This refresh token has been used, has expired or was revoked.",
   );
   // Refresh tokens are single use: the new pair replaces this one.
-  const grantId = await ctx.store.takeRefreshToken(hashSecret(token));
+  const hash = hashSecret(token);
+  const grantId = await ctx.store.takeRefreshToken(hash);
   const grant = grantId ? await ctx.store.getGrant(grantId) : null;
-  if (!grant) return gone;
+  // A key a race left behind can name a grant that has moved on.
+  if (!grant || grant.refreshHash !== hash) return gone;
   if (
     grant.clientId !== client.clientId ||
     !(await ctx.store.getAccount(grant.accountId))
@@ -260,9 +269,12 @@ async function refresh(
     await ctx.store.deleteGrant(grant);
     return gone;
   }
+  const minted = mintTokens({ ...grant, refreshedAt: ctx.now });
+  // Written only over a connection that still exists, so a Disconnect that
+  // lands mid-refresh stays done.
+  if (!(await ctx.store.replaceGrant(minted.grant))) return gone;
   await ctx.store.deleteAccessToken(grant.accessHash);
-  // saveTokens replaces both hashes.
-  return saveTokens(ctx, { ...grant, refreshedAt: ctx.now });
+  return issueTokens(ctx, minted);
 }
 
 /** POST /api/oauth/token, after the body is parsed into a form. */
@@ -298,11 +310,21 @@ export async function checkAccessToken(
   const header = authorization ?? "";
   const match = /^Bearer\s+([\w.~+/-]+=*)\s*$/i.exec(header);
   if (!match?.[1]) return { ok: false, tokenSent: /^Bearer\b/i.test(header) };
-  const access = await ctx.store.getAccessToken(hashSecret(match[1]));
+  const hash = hashSecret(match[1]);
+  const access = await ctx.store.getAccessToken(hash);
   if (
     !access ||
     access.expiresAt <= ctx.now ||
     !sameResource(access.resource, ctx.resource)
+  )
+    return { ok: false, tokenSent: true };
+  // The connection must still hold this token. After a Disconnect or a
+  // rotation, a token whose own key outlived the change stops all the same.
+  const grant = await ctx.store.getGrant(access.grantId);
+  if (
+    !grant ||
+    grant.accessHash !== hash ||
+    grant.accountId !== access.accountId
   )
     return { ok: false, tokenSent: true };
   return {

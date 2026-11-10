@@ -92,6 +92,11 @@ export interface Store {
   /** The code, once: null when it's gone or another request took it first. */
   takeOAuthCode(hash: string): Promise<OAuthCode | null>;
   putGrant(grant: McpGrant): Promise<void>;
+  /**
+   * Rewrites a connection only if it still exists, so a Disconnect that
+   * lands mid-refresh stays done. False when it's gone.
+   */
+  replaceGrant(grant: McpGrant): Promise<boolean>;
   getGrant(grantId: string): Promise<McpGrant | null>;
   /** Oldest first. */
   listGrants(id: string): Promise<McpGrant[]>;
@@ -461,6 +466,16 @@ export function createStore(redis: RedisLike, key: Buffer): Store {
       await redis.sadd(k.mcpGrants(grant.accountId), grant.id);
       // Renewed with every write, so the index outlives each grant it lists.
       await redis.expire(k.mcpGrants(grant.accountId), MCP_GRANT_TTL_S);
+    },
+    async replaceGrant(grant) {
+      const written = await redis.set(
+        k.mcpGrant(grant.id),
+        JSON.stringify(grant),
+        { xx: true, ex: MCP_GRANT_TTL_S },
+      );
+      if (written !== "OK") return false;
+      await redis.expire(k.mcpGrants(grant.accountId), MCP_GRANT_TTL_S);
+      return true;
     },
     getGrant: (grantId) => getJson<McpGrant>(k.mcpGrant(grantId)),
     async listGrants(id) {

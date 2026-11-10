@@ -5,11 +5,14 @@
  */
 export interface RedisLike {
   get(key: string): Promise<string | null>;
-  /** Resolves "OK" when written, null when `nx` found the key present. `ex` is seconds, `px` milliseconds. */
+  /**
+   * Resolves "OK" when written, null when `nx` found the key present or
+   * `xx` found it absent. `ex` is seconds, `px` milliseconds.
+   */
   set(
     key: string,
     value: string,
-    opts?: { nx?: boolean; ex?: number; px?: number },
+    opts?: { nx?: boolean; xx?: boolean; ex?: number; px?: number },
   ): Promise<"OK" | null>;
   /** Real Redis rejects zero keys; callers guard empty arrays. */
   del(...keys: string[]): Promise<number>;
