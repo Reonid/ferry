@@ -36,7 +36,8 @@ export interface McpServer<C> {
 export interface McpReply {
   /** 202 carries no body. */
   status: 200 | 202 | 400;
-  body: JsonObject | null;
+  /** One response, or a batch's responses. */
+  body: JsonObject | JsonObject[] | null;
 }
 
 const PARSE_ERROR = -32700;
@@ -111,6 +112,8 @@ async function callTool<C>(
   return ok(rpcResult(id, toolResult(outcome)));
 }
 
+const MAX_BATCH = 20;
+
 /**
  * One POST body in, one reply out. `protocolHeader` is the request's
  * MCP-Protocol-Version header, which every request after initialize
@@ -128,8 +131,35 @@ export async function handleMcpPost<C>(
   } catch {
     return bad(null, PARSE_ERROR, "Parse error");
   }
-  if (Array.isArray(message))
+  if (!Array.isArray(message))
+    return handleMessage(server, message, protocolHeader, ctx);
+  // 2025-03-26 allowed batches, and 2025-06-18 took them out.
+  if (protocolHeader !== null && protocolHeader !== "2025-03-26")
     return bad(null, INVALID_REQUEST, "Send one JSON-RPC message per request.");
+  if (message.length === 0 || message.length > MAX_BATCH)
+    return bad(
+      null,
+      INVALID_REQUEST,
+      `Send 1 to ${MAX_BATCH} messages in a batch.`,
+    );
+  const replies: JsonObject[] = [];
+  for (const one of message) {
+    const reply = await handleMessage(server, one, protocolHeader, ctx);
+    if (reply.body !== null && !Array.isArray(reply.body))
+      replies.push(reply.body);
+  }
+  // Only notifications and responses: nothing to answer.
+  return replies.length === 0
+    ? { status: 202, body: null }
+    : { status: 200, body: replies };
+}
+
+async function handleMessage<C>(
+  server: McpServer<C>,
+  message: unknown,
+  protocolHeader: string | null,
+  ctx: C,
+): Promise<McpReply> {
   if (!isObject(message) || message.jsonrpc !== "2.0")
     return bad(null, INVALID_REQUEST, "Invalid Request");
 

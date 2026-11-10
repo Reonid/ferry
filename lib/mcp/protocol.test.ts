@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { handleMcpPost, type McpServer } from "./protocol";
+import { handleMcpPost, type McpReply, type McpServer } from "./protocol";
+
+/** A reply to one message: its body, which must not be a batch. */
+function one(reply: McpReply): Record<string, unknown> {
+  if (Array.isArray(reply.body)) throw new Error("expected one response");
+  return reply.body ?? {};
+}
 
 const server: McpServer<{ who: string }> = {
   info: { name: "test", title: "Test", version: "1.0.0" },
@@ -87,7 +93,7 @@ describe("initialize", () => {
         // Even a header naming another version doesn't stop initialize.
         "2026-07-28",
       );
-      expect(reply.body?.result).toMatchObject({
+      expect(one(reply).result).toMatchObject({
         protocolVersion: "2025-11-25",
       });
     }
@@ -98,7 +104,7 @@ describe("requests after initialize", () => {
   it("lists the tools", async () => {
     const reply = await call("tools/list");
     expect(reply.status).toBe(200);
-    expect(reply.body?.result).toEqual({
+    expect(one(reply).result).toEqual({
       tools: server.tools.map((t) => t.definition),
     });
   });
@@ -109,7 +115,7 @@ describe("requests after initialize", () => {
       arguments: { limit: 3 },
     });
     const data = { args: { limit: 3 }, who: "acct" };
-    expect(reply.body?.result).toEqual({
+    expect(one(reply).result).toEqual({
       content: [{ type: "text", text: JSON.stringify(data) }],
       structuredContent: data,
     });
@@ -117,7 +123,7 @@ describe("requests after initialize", () => {
 
   it("defaults missing arguments to an empty object", async () => {
     const reply = await call("tools/call", { name: "echo" });
-    expect(reply.body?.result).toMatchObject({
+    expect(one(reply).result).toMatchObject({
       structuredContent: { args: {} },
     });
   });
@@ -140,7 +146,7 @@ describe("requests after initialize", () => {
   it("turns a throw into a tool error and logs only its name", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const reply = await call("tools/call", { name: "broken" });
-    expect(reply.body?.result).toMatchObject({ isError: true });
+    expect(one(reply).result).toMatchObject({ isError: true });
     expect(JSON.stringify(reply.body)).not.toContain("secret detail");
     expect(log).toHaveBeenCalledWith(
       "ferry: MCP tool broken failed (TypeError)",
@@ -156,11 +162,11 @@ describe("requests after initialize", () => {
     ]) {
       const reply = await call("tools/call", params);
       expect(reply.status).toBe(200);
-      expect(reply.body?.error, JSON.stringify(params)).toMatchObject({
+      expect(one(reply).error, JSON.stringify(params)).toMatchObject({
         code: -32602,
       });
     }
-    expect((await call("tools/list", [1])).body?.error).toMatchObject({
+    expect(one(await call("tools/list", [1])).error).toMatchObject({
       code: -32602,
     });
   });
@@ -181,7 +187,7 @@ describe("requests after initialize", () => {
     ]) {
       const reply = await call(method);
       expect(reply.status).toBe(200);
-      expect(reply.body?.error, method).toMatchObject({ code: -32601 });
+      expect(one(reply).error, method).toMatchObject({ code: -32601 });
     }
   });
 
@@ -236,7 +242,44 @@ describe("JSON-RPC framing", () => {
     }
   });
 
+  it("answers a 2025-03-26 batch with a batch, leaving out notifications", async () => {
+    const reply = await post(
+      [
+        { jsonrpc: "2.0", id: 1, method: "ping" },
+        { jsonrpc: "2.0", method: "notifications/initialized" },
+        { jsonrpc: "2.0", id: 2, method: "tools/list" },
+        { jsonrpc: "2.0", id: 3, method: "nope" },
+      ],
+      null,
+    );
+    expect(reply.status).toBe(200);
+    const replies = reply.body as { id: number }[];
+    expect(replies.map((r) => r.id)).toEqual([1, 2, 3]);
+    expect(replies[2]).toMatchObject({ error: { code: -32601 } });
+    for (const header of [null, "2025-03-26"])
+      expect(
+        await post(
+          [{ jsonrpc: "2.0", method: "notifications/initialized" }],
+          header,
+        ),
+      ).toEqual({ status: 202, body: null });
+  });
+
+  it("refuses batches from 2025-06-18 on, and empty or huge ones", async () => {
+    const ping = { jsonrpc: "2.0", id: 1, method: "ping" };
+    for (const [body, header] of [
+      [[ping], "2025-06-18"],
+      [[ping], "2025-11-25"],
+      [[], null],
+      [Array.from({ length: 21 }, () => ping), null],
+    ] as const) {
+      const reply = await post(body, header);
+      expect(reply.status).toBe(400);
+      expect(reply.body).toMatchObject({ error: { code: -32600 } });
+    }
+  });
+
   it("keeps string ids as they are", async () => {
-    expect((await call("ping", undefined, "req-7")).body?.id).toBe("req-7");
+    expect(one(await call("ping", undefined, "req-7")).id).toBe("req-7");
   });
 });

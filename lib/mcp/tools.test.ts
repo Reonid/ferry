@@ -361,7 +361,9 @@ describe("what never leaves Ferry", () => {
         ctx,
       );
       const text = JSON.stringify(reply.body);
-      expect(reply.body?.result).not.toHaveProperty("isError");
+      expect(
+        Array.isArray(reply.body) ? null : reply.body?.result,
+      ).not.toHaveProperty("isError");
       for (const secret of secrets)
         expect(text, `${definition.name} leaks ${secret}`).not.toContain(
           secret,
