@@ -231,17 +231,25 @@ test("offers changes unticked, and only to an app that asks for them", async ({
     name: "Also let Claude make changes",
   });
   await expect(box).not.toBeChecked();
-  await expect(box).toHaveAccessibleDescription(/pause and resume routes/);
+  await expect(box).toHaveAccessibleDescription(
+    /pause and resume routes.*couldn't delete anything/,
+  );
+  await expect(main.getByText(/and asks to make changes too/)).toBeVisible();
   await expect(
-    main.getByText("Delete routes or destinations, or connect new ones"),
+    main.getByText(
+      "Change routes or destinations, or post anywhere, unless you allow it below",
+    ),
   ).toBeVisible();
 
   await page.goto(
     authorizePath(clientId, pkce().challenge, CALLBACK, "ferry:read"),
   );
   await expect(main.getByRole("checkbox")).toHaveCount(0);
+  await expect(main.getByText(/asks to make changes/)).toHaveCount(0);
   await expect(
-    main.getByText("Change routes or destinations, or post anywhere"),
+    main.getByText("Change routes or destinations, or post anywhere", {
+      exact: true,
+    }),
   ).toBeVisible();
 });
 

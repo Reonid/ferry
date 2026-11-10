@@ -30,12 +30,10 @@ const SEES = [
 ];
 /** True whatever the owner answers. */
 const NEVER = ["Touch your Buffer account", "See sign-in tokens or webhooks"];
-const CANNOT_READ_ONLY = [
-  "Change routes or destinations, or post anywhere",
-  ...NEVER,
-];
-const CANNOT_WITH_CHANGES = [
-  "Delete routes or destinations, or connect new ones",
+const CANNOT = ["Change routes or destinations, or post anywhere", ...NEVER];
+/** Where the screen offers changes, the box below is the only way in. */
+const CANNOT_UNLESS_ALLOWED = [
+  "Change routes or destinations, or post anywhere, unless you allow it below",
   ...NEVER,
 ];
 
@@ -160,8 +158,9 @@ export default async function AuthorizePage(
           Connect {app} to Ferry
         </h1>
         <p className={styles.lede}>
-          {app} wants to read your Ferry account. When you answer, you&apos;ll
-          go back to{" "}
+          {app} wants to read your Ferry account
+          {request.offerWrite ? ", and asks to make changes too" : ""}. When you
+          answer, you&apos;ll go back to{" "}
           {LOOPBACK.has(host) ? (
             "an app on this computer"
           ) : (
@@ -183,7 +182,7 @@ export default async function AuthorizePage(
       <div className={styles.group}>
         <h2 className={ui.label}>It can&apos;t</h2>
         <List
-          items={request.offerWrite ? CANNOT_WITH_CHANGES : CANNOT_READ_ONLY}
+          items={request.offerWrite ? CANNOT_UNLESS_ALLOWED : CANNOT}
           icon={LockIcon}
         />
       </div>
@@ -209,8 +208,9 @@ export default async function AuthorizePage(
               Also let {app} make changes
             </label>
             <p id="changes-detail" className={ui.hint}>
-              It could pause and resume routes, add routes, retry deliveries
-              that failed, and send a route&apos;s latest post as a test. Leave
+              It could pause and resume routes, add routes, send failed posts
+              again, and send a route&apos;s latest post as a test. It still
+              couldn&apos;t delete anything or connect new destinations. Leave
               this off and it can only read.
             </p>
           </div>

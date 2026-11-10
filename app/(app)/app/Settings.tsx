@@ -203,8 +203,8 @@ export default function Settings({
             polish a Reddit draft. Add a custom connector with this address,
             then sign in with Buffer when it asks. It reads your routes,
             activity, drafts and alerts. Allow changes when it connects, and it
-            can also pause, add and test routes and send failed posts again. It
-            can&apos;t delete anything.
+            can also pause, resume, add and test routes and send failed posts
+            again. It can&apos;t delete anything.
           </p>
           <div className={styles.address}>
             <CopyField label="Connector address" value={mcpUrl} />
