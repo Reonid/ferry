@@ -1,0 +1,6 @@
+/*
+ * The app's document stylesheet (the dashboard, privacy, Reddit drafts
+ * and the 404): Ferry's tokens and base, shared with the landing.
+ */
+@import url("../styles/tokens.css");
+@import url("../styles/base.css");

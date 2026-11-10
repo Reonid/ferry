@@ -1,13 +1,20 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import type {
   ActivityEntry,
   Channel,
   PublicDestination,
   Route,
 } from "@/lib/types";
-import CrossingMap from "../app/CrossingMap";
+import CrossingMap from "@/app/(app)/app/CrossingMap";
+import { ReplayIcon } from "./icons";
 
 /*
  * The landing's illustration: the dashboard's own crossing map, drawn from
@@ -112,14 +119,61 @@ const LABEL =
 
 /** A beat after the map comes into view, so the eye is there first. */
 const SETTLE_MS = 500;
+/** Long enough for the map to take in the empty sea before boats return. */
+const CLEAR_MS = 80;
+/** Four staggered boats, sailing and lingering: see crossing.ts. */
+const VOYAGE_MS = 5_200;
 
-export default function ExampleCrossing() {
+/**
+ * The example map, in its frame, with a Replay button. It sails once when
+ * it comes into view; Replay sails it again on request. Under reduced
+ * motion it starts still, and Replay lights the lanes instead.
+ */
+export default function ExampleCrossing({
+  className,
+  barClassName,
+  titleClassName,
+  replayClassName,
+  mapClassName,
+  title = "Crossing map",
+  children,
+}: {
+  className?: string;
+  barClassName?: string;
+  titleClassName?: string;
+  replayClassName?: string;
+  /** The frame around the map itself. */
+  mapClassName?: string;
+  /** The bar's title, as the window around the map names it. */
+  title?: ReactNode;
+  /** More of the window under the map, such as the latest deliveries. */
+  children?: ReactNode;
+}) {
   const box = useRef<HTMLDivElement>(null);
   const [activity, setActivity] = useState(NOTHING_YET);
+  const [sailing, setSailing] = useState(false);
+  const timers = useRef<number[]>([]);
 
-  // The map sends boats for deliveries it hasn't seen, so handing it the
-  // arrivals once, after the first render, sails them once. Under reduced
-  // motion it stays a still picture.
+  // The map sends boats for deliveries it hasn't seen, so clearing the sea
+  // and handing it the arrivals again sails them again.
+  const sail = useCallback(() => {
+    const later = (ms: number, run: () => void) =>
+      timers.current.push(window.setTimeout(run, ms));
+    setSailing(true);
+    setActivity(NOTHING_YET);
+    later(CLEAR_MS, () => setActivity(ARRIVALS));
+    later(CLEAR_MS + VOYAGE_MS, () => setSailing(false));
+  }, []);
+
+  useEffect(() => {
+    const pending = timers.current;
+    return () => {
+      for (const id of pending) window.clearTimeout(id);
+    };
+  }, []);
+
+  // The first sailing waits until the map is in view. Under reduced motion
+  // it stays a still picture.
   useEffect(() => {
     const el = box.current;
     if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches)
@@ -129,26 +183,45 @@ export default function ExampleCrossing() {
       (entries) => {
         if (!entries.some((entry) => entry.isIntersecting)) return;
         watch.disconnect();
-        timer = window.setTimeout(() => setActivity(ARRIVALS), SETTLE_MS);
+        timer = window.setTimeout(sail, SETTLE_MS);
       },
-      { threshold: 0.6 },
+      { threshold: 0.3 },
     );
     watch.observe(el);
     return () => {
       watch.disconnect();
       window.clearTimeout(timer);
     };
-  }, []);
+  }, [sail]);
 
   return (
-    <div ref={box}>
-      <CrossingMap
-        channels={CHANNELS}
-        destinations={DESTINATIONS}
-        routes={ROUTES}
-        activity={activity}
-        label={LABEL}
-      />
+    <div className={className}>
+      <div className={barClassName}>
+        <p className={titleClassName}>{title}</p>
+        <button
+          type="button"
+          className={replayClassName}
+          aria-disabled={sailing || undefined}
+          onClick={() => {
+            if (!sailing) sail();
+          }}
+        >
+          <ReplayIcon />
+          Replay<span className="visually-hidden"> the example crossing</span>
+        </button>
+      </div>
+      <div ref={box} className={mapClassName}>
+        <div>
+          <CrossingMap
+            channels={CHANNELS}
+            destinations={DESTINATIONS}
+            routes={ROUTES}
+            activity={activity}
+            label={LABEL}
+          />
+        </div>
+      </div>
+      {children}
     </div>
   );
 }

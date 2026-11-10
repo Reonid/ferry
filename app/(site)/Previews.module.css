@@ -1,0 +1,297 @@
+/*
+ * The three places a post lands, each in its own app's look. Discord and
+ * Telegram keep their own colours (the --discord-* and --telegram-*
+ * tokens) in both schemes, as their dark themes do; the Reddit draft is
+ * Ferry's own page, so it wears Ferry's.
+ */
+.out {
+  inline-size: 0.875rem;
+  block-size: 0.875rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
+}
+
+/* ---------- Discord ---------- */
+
+.discord {
+  overflow: hidden;
+  border-radius: var(--radius-card);
+  background: var(--discord-bg);
+  color: var(--discord-text);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  box-shadow: var(--shadow-card);
+}
+
+.dcHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  border-block-end: 1px solid var(--discord-head);
+  color: var(--discord-strong);
+  font-weight: 500;
+}
+
+.dcHead span {
+  color: var(--discord-muted);
+  font-size: var(--text-lg);
+  line-height: 1;
+}
+
+.dcThread {
+  display: grid;
+  gap: var(--space-md);
+  padding: var(--space-md);
+}
+
+.dcMessage {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr);
+  gap: var(--space-sm);
+}
+
+.dcAvatar {
+  display: grid;
+  place-items: center;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  border-radius: 50%;
+  background: var(--discord-strong);
+}
+
+.dcBody {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.dcBy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2xs) var(--space-xs);
+}
+
+.dcBy b {
+  color: var(--discord-strong);
+  font-weight: 500;
+}
+
+.dcApp {
+  padding: 0 var(--space-2xs);
+  border-radius: 3px;
+  background: var(--discord-tag);
+  color: var(--discord-on-tag);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.dcTime {
+  color: var(--discord-muted);
+  font-size: var(--text-xs);
+}
+
+.dcPhoto {
+  inline-size: min(100%, 18rem);
+  aspect-ratio: 3 / 2;
+  margin-block: var(--space-2xs);
+  border-radius: var(--radius-xs);
+  object-fit: cover;
+}
+
+.dcLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-block-start: var(--space-2xs);
+  padding: var(--space-2xs) var(--space-sm);
+  border-radius: 3px;
+  background: var(--discord-button);
+  color: var(--discord-strong);
+  font-weight: 500;
+}
+
+.dcDay {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--discord-muted);
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+
+.dcDay::before,
+.dcDay::after {
+  content: "";
+  flex: 1;
+  border-block-start: 1px solid var(--discord-button);
+}
+
+.dcInput {
+  margin: 0 var(--space-md) var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-input);
+  background: var(--discord-input);
+  color: var(--discord-muted);
+}
+
+/* ---------- Telegram ---------- */
+
+.telegram {
+  overflow: hidden;
+  border-radius: var(--radius-card);
+  background: var(--telegram-bg);
+  color: var(--telegram-text);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  box-shadow: var(--shadow-card);
+}
+
+.tgHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--telegram-head);
+}
+
+.tgAvatar {
+  display: grid;
+  place-items: center;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  border-radius: 50%;
+  background: var(--telegram-link);
+  color: var(--telegram-on-button);
+  font-weight: 500;
+}
+
+.tgName {
+  display: grid;
+  line-height: 1.25;
+}
+
+.tgName b {
+  font-weight: 500;
+}
+
+.tgName span {
+  color: var(--telegram-muted);
+  font-size: var(--text-xs);
+}
+
+.tgChat {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-md);
+  padding: var(--space-lg) var(--space-md);
+}
+
+.tgPost {
+  display: grid;
+  gap: var(--space-2xs);
+  inline-size: min(100%, 20rem);
+}
+
+.tgBubble {
+  overflow: hidden;
+  border-radius: var(--radius-card) var(--radius-card) var(--radius-card)
+    var(--radius-xs);
+  background: var(--telegram-bubble);
+}
+
+.tgBubble p {
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.tgPhoto {
+  inline-size: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+}
+
+.tgTime {
+  float: right;
+  margin: var(--space-2xs) 0 0 var(--space-sm);
+  color: var(--telegram-muted);
+  font-size: var(--text-xs);
+}
+
+.tgButton {
+  padding: var(--space-xs);
+  border-radius: var(--radius-input);
+  background: var(--telegram-button);
+  color: var(--telegram-on-button);
+  font-weight: 500;
+  text-align: center;
+}
+
+/* ---------- Ferry's Reddit draft ---------- */
+
+.reddit {
+  display: grid;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  font-size: var(--text-sm);
+}
+
+.rdTitle {
+  font-size: var(--text-lg);
+  font-weight: 500;
+  letter-spacing: -0.015em;
+}
+
+.rdAct {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-md);
+}
+
+.rdPost {
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-pill);
+  background: var(--color-yellow);
+  color: var(--color-on-yellow);
+  font-weight: 500;
+}
+
+.rdNote {
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+}
+
+.rdField {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2xs);
+}
+
+.rdLabel {
+  font-weight: 500;
+}
+
+.rdValue {
+  inline-size: 100%;
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-input);
+  background: var(--color-paper);
+}
+
+.rdPhoto {
+  inline-size: 9rem;
+  aspect-ratio: 3 / 2;
+  border-radius: var(--radius-xs);
+  object-fit: cover;
+}

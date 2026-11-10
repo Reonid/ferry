@@ -1,83 +1,181 @@
-/* Shared controls: sections, buttons, fields and the line under a form. */
+/*
+ * The app's shared controls: white cards with a soft edge, pill buttons
+ * (the logo's yellow for the one that matters), roomy fields with an
+ * outline for focus. Colours and faces are the tokens in
+ * app/styles/tokens.css.
+ */
 
-/* A page's main column, under the header. */
+/* A page's main column, under the bar. */
 .page {
   inline-size: 100%;
-  max-width: var(--page-max);
-  margin: 0 auto;
-  padding: var(--space-7) var(--gutter) var(--space-8);
+  max-inline-size: var(--container-app);
+  margin-inline: auto;
+  padding: var(--space-2xl) var(--gutter-app) var(--space-3xl);
 }
 
-/* A page's title: set like a name on the water, in the chart's italic. */
 .title {
-  font-family: var(--font-water);
-  font-style: italic;
-  font-weight: 500;
-  font-size: clamp(2rem, 1.55rem + 1.9vw, 2.75rem);
-  line-height: 1.1;
-  letter-spacing: -0.01em;
+  font-size: var(--text-section);
+  line-height: 1.08;
 }
 
-.section {
+/* A card: white, a soft edge, generous room. */
+.card {
+  position: relative;
   display: grid;
   align-content: start;
-  gap: var(--space-4);
+  gap: var(--space-md);
+  min-width: 0;
+  padding: var(--space-lg);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+}
+
+@media (min-width: 640px) {
+  .card {
+    padding: calc(var(--space-lg) + var(--space-xs));
+  }
+}
+
+/* A card's top line: its heading, and anything that sits beside it. */
+.cardHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs) var(--space-md);
 }
 
 .heading {
-  font-size: var(--text-lg);
-  font-weight: 700;
+  font-size: var(--text-xl);
+  line-height: 1.2;
+  letter-spacing: -0.015em;
 }
 
+/* A section's heading takes focus after an action removes its row. */
+.heading:focus-visible {
+  border-radius: var(--radius-xs);
+}
+
+/*
+ * Pill buttons. Colours change at once and never fade (the browser tests
+ * switch schemes in place); only the press moves, 1px down.
+ */
 .button {
+  --b-bg: var(--color-surface);
+  --b-ink: var(--color-ink);
+  --b-edge: var(--color-rule-strong);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-2);
-  min-height: 2.5rem;
-  padding: var(--space-2) var(--space-4);
-  border: 1.5px solid var(--rule-strong);
-  border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--ink);
-  font-size: 0.9375rem;
-  font-weight: 600;
+  gap: var(--space-xs);
+  min-block-size: 40px;
+  padding: 0 var(--space-md);
+  border: 1px solid var(--b-edge);
+  border-radius: var(--radius-pill);
+  background: var(--b-bg);
+  color: var(--b-ink);
+  font-size: var(--text-sm);
+  font-weight: 500;
   line-height: 1.2;
   text-align: center;
   text-decoration: none;
   cursor: pointer;
+  user-select: none;
+  transition: transform var(--dur-micro) var(--ease-out);
 }
 
 .button:hover {
-  border-color: var(--ink-muted);
-  background: var(--sea-shallow);
+  --b-bg: var(--color-paper-2);
   text-decoration: none;
 }
 
+.button:active {
+  transform: translateY(1px);
+}
+
+/* Disabled: a grey fill, muted ink, the not-allowed cursor and the
+   dimming, so no one channel carries it alone. */
+.button:disabled {
+  --b-bg: var(--color-paper-2);
+  --b-ink: var(--color-muted);
+  --b-edge: var(--color-rule);
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* Busy while its action runs: the same grey, and a waiting cursor. */
 .button[aria-disabled="true"] {
+  --b-bg: var(--color-paper-2);
+  --b-ink: var(--color-muted);
+  --b-edge: var(--color-rule);
   cursor: progress;
   opacity: 0.7;
 }
 
+.button[aria-disabled="true"]:active {
+  transform: none;
+}
+
+/* The one action that matters most on a screen: the logo's yellow. */
 .primary {
-  border-color: var(--route-strong);
-  background: var(--route-strong);
-  color: var(--on-route);
+  --b-bg: var(--color-yellow);
+  --b-ink: var(--color-on-yellow);
+  --b-edge: var(--color-yellow);
 }
 
 .primary:hover {
-  border-color: var(--route);
-  background: var(--route);
+  --b-bg: var(--color-yellow-hover);
+  --b-edge: var(--color-yellow-hover);
 }
 
+/* Quieter than a button: a tool among several. */
+.ghost {
+  --b-bg: transparent;
+  --b-edge: transparent;
+}
+
+.ghost:hover {
+  --b-bg: var(--color-paper-2);
+}
+
+/* What can't be undone: the danger colour on the confirm itself. */
 .danger {
-  border-color: var(--alert);
-  color: var(--alert);
+  --b-bg: var(--color-danger);
+  --b-ink: var(--color-surface);
+  --b-edge: var(--color-danger);
 }
 
 .danger:hover {
-  border-color: var(--alert);
-  background: var(--alert-wash);
+  --b-bg: color-mix(in oklab, var(--color-danger) 88%, var(--color-ink));
+}
+
+.ghost.danger {
+  --b-bg: transparent;
+  --b-ink: var(--color-danger);
+  --b-edge: transparent;
+}
+
+.ghost.danger:hover {
+  --b-bg: var(--color-danger-soft);
+}
+
+.small {
+  min-block-size: 36px;
+  padding: 0 var(--space-sm);
+}
+
+.large {
+  min-block-size: 48px;
+  padding: 0 var(--space-lg);
+  font-size: var(--text-md);
+}
+
+/* An icon at the start of a button's label. */
+.icon {
+  inline-size: 1.05em;
+  block-size: 1.05em;
+  flex: none;
 }
 
 /* A <summary> that reads as a button, with a chevron that turns open. */
@@ -93,11 +191,11 @@
   content: "";
   inline-size: 0.4em;
   block-size: 0.4em;
-  margin-inline-start: 0.15em;
+  margin-inline-start: var(--space-3xs);
   border: solid currentColor;
-  border-width: 0 2px 2px 0;
+  border-width: 0 1.5px 1.5px 0;
   transform: translateY(-0.15em) rotate(45deg);
-  transition: transform 150ms ease;
+  transition: transform var(--dur-short) var(--ease-out);
 }
 
 details[open] > .disclosure::after {
@@ -112,49 +210,157 @@ details[open] > .disclosure::after {
 .adds::before {
   content: "+";
   inline-size: 0.75em;
-  font-weight: 700;
+  font-size: 1.125em;
+  font-weight: 500;
+  line-height: 1;
 }
 
 details[open] > .adds::before {
   content: "−";
 }
 
-.field {
-  display: grid;
-  gap: var(--space-1);
+/* Adds a thing to the list above it: a dashed outline, the whole width. */
+.adder {
+  --b-ink: var(--color-accent);
+  --b-edge: var(--color-rule-strong);
+  inline-size: 100%;
+  border-style: dashed;
 }
 
+details[open] > .adder {
+  border-style: solid;
+}
+
+/*
+ * A list line that opens to its controls: the whole line is the
+ * <summary>, so a list reads calmly until someone wants to change a thing.
+ * Each list sets its own columns; the chevron is always the last.
+ */
+.row {
+  display: grid;
+  align-items: center;
+  gap: var(--space-sm);
+  min-block-size: 56px;
+  margin-inline: calc(-1 * var(--space-xs));
+  padding: var(--space-sm) var(--space-xs);
+  border-radius: var(--radius-input);
+  cursor: pointer;
+  list-style: none;
+}
+
+.row::-webkit-details-marker {
+  display: none;
+}
+
+.row:hover {
+  background: var(--color-paper-2);
+}
+
+.row::after {
+  content: "";
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  margin-inline: var(--space-2xs);
+  border: solid var(--color-muted);
+  border-width: 0 1.5px 1.5px 0;
+  transform: translateY(-0.15rem) rotate(45deg);
+  transition: transform var(--dur-short) var(--ease-out);
+}
+
+details[open] > .row::after {
+  transform: translateY(0.1rem) rotate(-135deg);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+/* Also set on small h3s, which would otherwise keep the browser's size
+   and the heads' tight leading. */
 .label {
-  font-weight: 600;
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  font-weight: 500;
+  line-height: 1.55;
+  letter-spacing: 0;
 }
 
 .hint {
-  max-width: var(--measure);
-  color: var(--ink-muted);
+  max-inline-size: var(--measure);
+  color: var(--color-muted);
   font-size: var(--text-sm);
 }
 
 .input {
   inline-size: 100%;
-  min-height: 2.5rem;
-  padding: var(--space-2) var(--space-3);
-  border: 1.5px solid var(--rule-strong);
-  border-radius: var(--radius);
-  background: var(--surface);
+  min-block-size: 44px;
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--color-rule-strong);
+  border-radius: var(--radius-input);
+  background: var(--color-surface);
+  outline: 2px solid transparent;
+  outline-offset: 1px;
+}
+
+.input:hover {
+  border-color: var(--color-muted);
+}
+
+.input:focus-visible {
+  outline-color: var(--color-focus);
 }
 
 .input::placeholder {
-  color: var(--ink-muted);
+  color: var(--color-muted);
   opacity: 1;
+}
+
+.input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+textarea.input {
+  resize: none;
+}
+
+select.input {
+  appearance: none;
+  padding-inline-end: var(--space-xl);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--color-muted) 50%),
+    linear-gradient(135deg, var(--color-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 1.15rem) 50%,
+    calc(100% - 0.8rem) 50%;
+  background-size:
+    0.35rem 0.35rem,
+    0.35rem 0.35rem;
+  background-repeat: no-repeat;
+  cursor: pointer;
 }
 
 /* A live result line. Never hidden when empty: a live region has to be in
    the accessibility tree before its message arrives. */
 .status {
+  color: var(--color-muted);
   font-size: var(--text-sm);
-  color: var(--ink-muted);
+}
+
+/* Empty, it stays in the tree but takes no row, so it adds no gap. */
+.status:empty {
+  position: absolute;
 }
 
 .error {
-  color: var(--alert);
+  color: var(--color-danger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button,
+  .disclosure::after,
+  .row::after {
+    transition: none;
+  }
 }

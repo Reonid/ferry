@@ -19,6 +19,15 @@ const eslintConfig = defineConfig([
     ".impeccable/**",
     ".hallmark/**",
   ]),
+  {
+    rules: {
+      // The app's 404 is a catch-all page (app/(app)/[...missing]), the
+      // stand-in for a global not-found across two root layouts. It matches
+      // every path, so this rule would take each <a> for a page link,
+      // including the ones to route handlers (/api/...) that must stay <a>.
+      "@next/next/no-html-link-for-pages": "off",
+    },
+  },
   eslintConfigPrettier,
 ]);
 

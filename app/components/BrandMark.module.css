@@ -1,21 +1,36 @@
-.mark {
-  inline-size: 2.75rem;
-  block-size: auto;
-  overflow: visible;
+/* The logo tile: the same colours in both schemes, like any app icon. */
+.tile {
+  display: inline-grid;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
   flex: none;
+  overflow: hidden;
+  border-radius: 24%;
+  background: var(--logo-ground);
 }
 
-.hull {
-  fill: var(--ink);
+/* On the night paper a faint rim sets the green tile off the ground. */
+@media (prefers-color-scheme: dark) {
+  .tile {
+    box-shadow: inset 0 0 0 1px var(--color-rule-strong);
+  }
 }
 
-.deck {
-  fill: var(--route);
+.svg {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
 }
 
-.wake {
-  fill: none;
-  stroke: var(--route);
-  stroke-width: 1.6;
-  stroke-linecap: round;
+.body {
+  fill: var(--logo-ship);
+}
+
+.funnel {
+  fill: var(--logo-funnel);
+}
+
+.ship {
+  transform-box: fill-box;
+  transform-origin: center;
 }
