@@ -29,6 +29,15 @@
   overflow-wrap: anywhere;
 }
 
+/* For an app on a site Ferry doesn't know: the name proves nothing. */
+.caution {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-input);
+  background: var(--color-danger-soft);
+  color: var(--color-ink);
+  overflow-wrap: anywhere;
+}
+
 .group {
   display: grid;
   gap: var(--space-xs);

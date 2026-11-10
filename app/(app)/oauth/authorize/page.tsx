@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { currentAccount } from "@/lib/auth/current";
 import { loadKey } from "@/lib/crypto";
 import { env } from "@/lib/env";
 import { checkAuthorizationRequest } from "@/lib/oauth/authorize";
+import { consentBinding } from "@/lib/oauth/consent";
 import { urls } from "@/lib/oauth/http";
 import { CheckIcon, LockIcon } from "@/app/components/icons";
 import SiteHeader from "@/app/components/SiteHeader";
@@ -35,14 +35,22 @@ const CANNOT = [
 ];
 
 const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]"]);
+/** Sites whose connectors Ferry expects; any other gets a word of caution. */
+const KNOWN_HOSTS = new Set(["claude.ai", "claude.com", "chatgpt.com"]);
 
 function queryOf(
   query: Record<string, string | string[] | undefined>,
 ): URLSearchParams {
   const params = new URLSearchParams();
-  for (const [name, value] of Object.entries(query))
-    for (const one of Array.isArray(value) ? value : value ? [value] : [])
-      params.append(name, one);
+  for (const [name, value] of Object.entries(query)) {
+    // Empty values stay: an app's state="" must come back as it went.
+    const values = Array.isArray(value)
+      ? value
+      : value === undefined
+        ? []
+        : [value];
+    for (const one of values) params.append(name, one);
+  }
   return params;
 }
 
@@ -86,14 +94,12 @@ export default async function AuthorizePage(
 ) {
   const params = queryOf(await props.searchParams);
   const { issuer, resource } = urls();
-  const check = checkAuthorizationRequest(params, {
-    key: loadKey(env("ENCRYPTION_KEY")),
-    issuer,
-    resource,
-  });
+  const key = loadKey(env("ENCRYPTION_KEY"));
+  const check = checkAuthorizationRequest(params, { key, issuer, resource });
   if (!check.ok) {
-    // A known app with a bad request gets its error back, as OAuth asks.
-    if (check.redirect !== null) redirect(check.redirect);
+    // Shown here, never sent on. Anyone can register an app, so sending
+    // errors to its redirect URI before the owner answers would let any
+    // site bounce visitors through Ferry's address (RFC 9700 4.11.2).
     return (
       <Screen>
         <h1 id="connect-title" className={styles.title}>
@@ -158,6 +164,12 @@ export default async function AuthorizePage(
           )}
           .
         </p>
+        {!LOOPBACK.has(host) && !KNOWN_HOSTS.has(host) && (
+          <p className={styles.caution}>
+            Ferry doesn&apos;t know {host}. Allow only if you started connecting
+            Ferry there just now.
+          </p>
+        )}
       </div>
       <div className={styles.group}>
         <h2 className={ui.label}>It will see</h2>
@@ -176,6 +188,11 @@ export default async function AuthorizePage(
         action={`/api/oauth/authorize?${query}`}
         className={styles.actions}
       >
+        <input
+          type="hidden"
+          name="account"
+          value={consentBinding(key, account.accountId)}
+        />
         <button
           type="submit"
           name="decision"

@@ -1,7 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { decideConsent } from "@/lib/oauth/consent";
-import { oauthContext } from "@/lib/oauth/http";
+import { oauthContext, readBody } from "@/lib/oauth/http";
 import { getSession } from "@/lib/session";
+
+/** The form holds two short fields; the request itself is in the query. */
+const MAX_BODY = 1024;
 
 /**
  * Allow or Cancel on the consent screen. The form posts to this URL with
@@ -10,13 +13,14 @@ import { getSession } from "@/lib/session";
  */
 export async function POST(request: NextRequest): Promise<Response> {
   const session = await getSession();
-  const form = await request.formData().catch(() => null);
+  const form = new URLSearchParams((await readBody(request, MAX_BODY)) ?? "");
   const result = await decideConsent({
     ctx: oauthContext(),
     origin: request.headers.get("origin"),
     accountId: session.accountId ?? null,
+    binding: form.get("account"),
     params: request.nextUrl.searchParams,
-    allow: form?.get("decision") === "allow",
+    allow: form.get("decision") === "allow",
   });
   if (result.status !== 303)
     return new Response(result.message, {

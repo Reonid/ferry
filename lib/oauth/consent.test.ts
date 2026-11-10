@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createPkcePair } from "../auth/pkce";
 import type { OAuthClient } from "./clients";
-import { decideConsent } from "./consent";
+import { consentBinding, decideConsent } from "./consent";
 import { tokenRequest } from "./tokens";
 import { BASE, CLAUDE_CALLBACK, oauthFixture, RESOURCE } from "./test-support";
 
@@ -37,6 +37,7 @@ const decide = (over: Partial<Parameters<typeof decideConsent>[0]> = {}) =>
     ctx: fx.ctx(),
     origin: BASE,
     accountId: "acct",
+    binding: consentBinding(fx.key, "acct"),
     params: params(),
     allow: true,
     ...over,
@@ -88,6 +89,15 @@ describe("decideConsent", () => {
       const url = location(await decide({ accountId }));
       expect(url.origin + url.pathname).toBe(`${BASE}/oauth/authorize`);
       expect(url.searchParams.get("client_id")).toBe(claude.clientId);
+    }
+  });
+
+  it("asks again when another account signed in after the screen was shown", async () => {
+    await fx.account("other");
+    for (const binding of [null, "", consentBinding(fx.key, "other")]) {
+      const url = location(await decide({ binding }));
+      expect(url.pathname, String(binding)).toBe("/oauth/authorize");
+      expect(url.searchParams.has("code")).toBe(false);
     }
   });
 

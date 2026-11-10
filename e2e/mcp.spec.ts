@@ -132,11 +132,41 @@ test("sends Cancel back to the app as access_denied", async ({ page }) => {
   expect(back.has("code")).toBe(false);
 });
 
-test("names the site an app returns to", async ({ page }) => {
+test("names the site an app returns to, and cautions about unknown ones", async ({
+  page,
+}) => {
   const claude = "https://claude.ai/api/mcp/auth_callback";
   const clientId = await registerApp(page.request, claude);
   await signInTo(page, authorizePath(clientId, pkce().challenge, claude));
-  await expect(page.getByRole("main").getByText("claude.ai")).toBeVisible();
+  const main = page.getByRole("main");
+  await expect(main.getByText("claude.ai", { exact: true })).toBeVisible();
+  await expect(main.getByText(/doesn't know/)).toHaveCount(0);
+
+  // An app may call itself Claude; only its site says where it lives.
+  const lookalike = "https://claude-connector.example/cb";
+  const fakeId = await registerApp(page.request, lookalike);
+  await page.goto(authorizePath(fakeId, pkce().challenge, lookalike));
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Connect Claude to Ferry",
+  );
+  await expect(
+    main.getByText(/Ferry doesn't know claude-connector\.example/),
+  ).toBeVisible();
+});
+
+test("keeps a known app's bad request on Ferry instead of sending it on", async ({
+  page,
+}) => {
+  const evil = "https://evil.example/landing";
+  const clientId = await registerApp(page.request, evil);
+  // Signed out, with nothing clicked: Ferry must not bounce the visitor.
+  await page.goto(
+    `/oauth/authorize?${new URLSearchParams({ client_id: clientId, response_type: "token" })}`,
+  );
+  expect(new URL(page.url()).origin).toBe(BASE);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "This link doesn't work",
+  );
 });
 
 test("explains a link Ferry can't use instead of following it", async ({
@@ -168,19 +198,28 @@ test("the consent screen passes axe in light and dark, and takes the keyboard", 
 }) => {
   const clientId = await registerApp(page.request);
   const path = authorizePath(clientId, pkce().challenge);
+  // The same screen for a site Ferry doesn't know, with its caution.
+  const unknown = "https://connector.example/cb";
+  const cautioned = authorizePath(
+    await registerApp(page.request, unknown),
+    pkce().challenge,
+    unknown,
+  );
   await signInTo(page, path);
-  for (const colorScheme of ["light", "dark"] as const) {
-    await page.emulateMedia({ colorScheme });
-    await page.goto(path);
-    const { violations } = await new AxeBuilder({ page }).analyze();
-    expect(
-      violations.map((v) => ({
-        rule: v.id,
-        targets: v.nodes.map((n) => n.target.join(" ")),
-      })),
-      `axe violations in ${colorScheme}`,
-    ).toEqual([]);
-  }
+  for (const target of [path, cautioned])
+    for (const colorScheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme });
+      await page.goto(target);
+      const { violations } = await new AxeBuilder({ page }).analyze();
+      expect(
+        violations.map((v) => ({
+          rule: v.id,
+          targets: v.nodes.map((n) => n.target.join(" ")),
+        })),
+        `axe violations in ${colorScheme}${target === cautioned ? " with the caution" : ""}`,
+      ).toEqual([]);
+    }
+  await page.goto(path);
   await tabTo(page, page.getByRole("button", { name: "Allow" }));
   await tabTo(page, page.getByRole("button", { name: "Cancel" }));
 });

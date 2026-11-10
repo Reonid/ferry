@@ -16,8 +16,11 @@ export type AuthorizationCheck =
   | { ok: true; request: AuthorizationRequest }
   /** The app or its redirect URI is unknown, so the error stays on Ferry's page. */
   | { ok: false; redirect: null; message: string }
-  /** Anything else goes back to the app, as OAuth asks. */
-  | { ok: false; redirect: string };
+  /**
+   * A known app's bad request. The consent screen only shows `message`.
+   * Only an answer the owner sent goes back to the app, at `redirect`.
+   */
+  | { ok: false; redirect: string; message: string };
 
 const MAX_STATE = 2048;
 /** BASE64URL(SHA-256(verifier)) is always 43 characters. */
@@ -86,6 +89,7 @@ export function checkAuthorizationRequest(
       state,
       iss: ctx.issuer,
     }),
+    message: `The app asked in a way Ferry can't accept (${description.replace(/\.$/, "")}). Start again from the app.`,
   });
 
   if (rawState === undefined)

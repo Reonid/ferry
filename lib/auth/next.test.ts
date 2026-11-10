@@ -27,6 +27,8 @@ describe("safeNext", () => {
       "https://evil.example/oauth/authorize",
       "/oauth/authorize\n",
       `/oauth/authorize?${"x".repeat(5000)}`,
+      // Short as typed, but over a cookie's size once encoded.
+      `/oauth/authorize?state=${"é".repeat(700)}`,
     ])
       expect(safeNext(value), String(value)).toBeNull();
   });

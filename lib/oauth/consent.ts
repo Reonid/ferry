@@ -1,5 +1,17 @@
+import { createHmac } from "node:crypto";
+import { deriveKey } from "../crypto";
 import { authorizationRedirect, checkAuthorizationRequest } from "./authorize";
 import { issueCode, type OAuthContext } from "./tokens";
+
+/**
+ * Ties the consent form to the account it showed. The code goes only to
+ * that account, even if another one signed in before Allow was pressed.
+ */
+export function consentBinding(key: Buffer, accountId: string): string {
+  return createHmac("sha256", deriveKey(key, "mcp consent"))
+    .update(accountId)
+    .digest("base64url");
+}
 
 export type ConsentResult =
   { status: 303; location: string } | { status: 400 | 403; message: string };
@@ -14,6 +26,8 @@ export async function decideConsent(args: {
   ctx: OAuthContext;
   origin: string | null;
   accountId: string | null;
+  /** The form's consentBinding, for the account the screen named. */
+  binding: string | null;
   params: URLSearchParams;
   allow: boolean;
 }): Promise<ConsentResult> {
@@ -32,8 +46,9 @@ export async function decideConsent(args: {
   const account = args.accountId
     ? await ctx.store.getAccount(args.accountId)
     : null;
-  // Signed out in the meantime: back to the screen, which asks to sign in.
-  if (!account)
+  // Signed out, or into another account, since the screen was shown: back
+  // to the screen, which asks again for whoever is signed in now.
+  if (!account || args.binding !== consentBinding(ctx.key, account.accountId))
     return {
       status: 303,
       location: `${ctx.issuer}/oauth/authorize?${params.toString()}`,

@@ -2,6 +2,8 @@
 export const NEXT_COOKIE = "ferry_next";
 
 const MAX_NEXT = 4096;
+/** Browsers drop a cookie over about 4 KB, and the value is stored encoded. */
+const MAX_ENCODED = 3500;
 const PLACEHOLDER = "https://ferry.invalid";
 
 /**
@@ -19,7 +21,8 @@ export function safeNext(value: string | null | undefined): string | null {
   } catch {
     return null;
   }
-  return url.origin === PLACEHOLDER && url.pathname === "/oauth/authorize"
-    ? `${url.pathname}${url.search}`
-    : null;
+  if (url.origin !== PLACEHOLDER || url.pathname !== "/oauth/authorize")
+    return null;
+  const next = `${url.pathname}${url.search}`;
+  return encodeURIComponent(next).length <= MAX_ENCODED ? next : null;
 }
