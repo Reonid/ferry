@@ -6,12 +6,13 @@ import {
   LATEST_SENT_QUERY,
 } from "../buffer/queries";
 import { TokenBusyError } from "../buffer/tokens";
-import { SEND_LATEST_COOLDOWN_MS } from "../constants";
+import { MAX_ROUTES, SEND_LATEST_COOLDOWN_MS } from "../constants";
 import { newId } from "../crypto";
 import { deliverToDestination } from "../delivery/deliver";
 import { retryFailedJob } from "../delivery/retries";
 import { normalizeSubreddit } from "../destinations/reddit/subreddit";
 import { toMirrorPost } from "../mirror/to-mirror";
+import { routeTakesTags } from "../routing/match";
 import type { Store } from "../store/store";
 import type { SyncDeps } from "../sync/runner";
 import { dayKey } from "../time";
@@ -20,6 +21,7 @@ import type {
   Channel,
   Destination,
   DiscordDestination,
+  Post,
   RedditDestination,
   Route,
   SyncState,
@@ -98,22 +100,53 @@ async function ownDestination(
   return dest && dest.accountId === accountId ? dest : null;
 }
 
+const sameSet = (a: string[], b: string[]) =>
+  a.length === b.length && a.every((x) => b.includes(x));
+
+/**
+ * Adds a route, unless one with the same channels, destination and tags
+ * exists. A post crosses once per destination anyway; this keeps a
+ * repeated click, or an AI app's repeated call, from adding clutter.
+ */
 export async function createRoute(
   store: Store,
   accountId: string,
   input: { channelIds: string[]; destinationId: string; tagNames: string[] },
   now: number,
-): Promise<ActionResult> {
+): Promise<
+  { ok: true; message: string; routeId: string } | { ok: false; error: string }
+> {
   const checked = validateRouteInput({
     ...input,
     channels: await store.getChannels(accountId),
     destinations: await store.listDestinations(accountId),
   });
-  if (!checked.ok) return fail(checked.error);
+  if (!checked.ok) return { ok: false, error: checked.error };
+  const channelIds = [...new Set(input.channelIds)];
+  const routes = await store.listRoutes(accountId);
+  const same = routes.find(
+    (r) =>
+      r.destinationId === input.destinationId &&
+      sameSet(r.channelIds, channelIds) &&
+      sameSet(r.tagNames, checked.tagNames),
+  );
+  if (same)
+    return {
+      ok: false,
+      error: same.paused
+        ? "That route already exists, paused. Resume it instead."
+        : "That route already exists.",
+    };
+  if (routes.length >= MAX_ROUTES)
+    return {
+      ok: false,
+      error: `You have ${MAX_ROUTES} routes, the most Ferry keeps. Delete one first.`,
+    };
+  const id = newId();
   await store.putRoute({
-    id: newId(),
+    id,
     accountId,
-    channelIds: [...new Set(input.channelIds)],
+    channelIds,
     tagNames: checked.tagNames,
     destinationId: input.destinationId,
     activeSince: now,
@@ -121,7 +154,7 @@ export async function createRoute(
     createdAt: now,
   });
   await syncNow(store, accountId, now);
-  return { ok: true, message: "Route added." };
+  return { ok: true, message: "Route added.", routeId: id };
 }
 
 export async function deleteRoute(
@@ -144,13 +177,15 @@ export async function setRoutePaused(
 ): Promise<ActionResult> {
   const route = await ownRoute(store, accountId, routeId);
   if (!route) return fail("That route no longer exists.");
-  if (route.paused && !paused) {
-    // A resumed route starts afresh: posts from while it was paused stay put.
-    await store.putRoute({ ...route, paused, activeSince: now });
-    await syncNow(store, accountId, now);
-  } else {
-    await store.putRoute({ ...route, paused });
-  }
+  // A resumed route starts afresh: posts from while it was paused stay put.
+  const resumed = route.paused && !paused;
+  const next = resumed
+    ? { ...route, paused, activeSince: now }
+    : { ...route, paused };
+  // Deleted since it was read, by the owner or Delete my data: it stays gone.
+  if (!(await store.replaceRoute(next)))
+    return fail("That route no longer exists.");
+  if (resumed) await syncNow(store, accountId, now);
   return { ok: true };
 }
 
@@ -282,6 +317,8 @@ export async function sendLatestPost(
   const { store } = deps;
   const route = await ownRoute(store, accountId, routeId);
   if (!route) return fail("That route no longer exists.");
+  // Paused means nothing crosses, tests included.
+  if (route.paused) return fail("Resume this route first.");
   const destination = await ownDestination(
     store,
     accountId,
@@ -296,13 +333,15 @@ export async function sendLatestPost(
   const state = await store.getSyncState(accountId);
   const blocked = bufferBlocked(account, state, now);
   if (blocked) return blocked;
+  // Claimed before the Buffer call, and atomically, so neither a double
+  // click nor an AI app's parallel calls slip past the cooldown.
   if (
-    state.lastSendLatestAt !== null &&
-    now - state.lastSendLatestAt < SEND_LATEST_COOLDOWN_MS
+    !(await store.claim(
+      `send-latest:${accountId}`,
+      SEND_LATEST_COOLDOWN_MS / 1000,
+    ))
   )
     return fail("Wait a few seconds before sending another test.");
-  // Saved before the Buffer call so a double click cannot slip past the cooldown.
-  await store.putSyncState(accountId, { ...state, lastSendLatestAt: now });
 
   const channels = await store.getChannels(accountId);
   const first = channels.find((c) => route.channelIds.includes(c.id));
@@ -318,7 +357,7 @@ export async function sendLatestPost(
   // An empty channel filter would ask Buffer for every channel's posts.
   if (channelIds.length === 0) return fail(REFRESH_CHANNELS);
 
-  let node: unknown;
+  let nodes: unknown[] = [];
   try {
     const accessToken = await deps.getAccessToken(accountId);
     await store.countApiCall(accountId, dayKey(now));
@@ -330,16 +369,21 @@ export async function sendLatestPost(
     if (rateLimit) await store.putRateLimit(rateLimit);
     const edges = (data as { posts?: { edges?: unknown } } | null)?.posts
       ?.edges;
-    node = Array.isArray(edges)
-      ? (edges[0] as { node?: unknown } | undefined)?.node
-      : undefined;
+    nodes = Array.isArray(edges)
+      ? edges.map((e) => (e as { node?: unknown } | undefined)?.node)
+      : [];
   } catch (err) {
     const known = await buffersFailure(store, account, err);
     if (known) return known;
     throw err;
   }
-  const post = mapPost(node);
-  if (!post) return fail("No sent posts on these channels yet.");
+  const posts = nodes
+    .map((n) => mapPost(n))
+    .filter((p): p is Post => p !== null);
+  if (posts.length === 0) return fail("No sent posts on these channels yet.");
+  // Newest first, so this is the latest post the route would carry.
+  const post = posts.find((p) => routeTakesTags(p, route));
+  if (!post) return fail("No sent posts with this route's tags yet.");
 
   const status = await deliverToDestination({
     account,

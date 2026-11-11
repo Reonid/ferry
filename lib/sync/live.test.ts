@@ -10,7 +10,6 @@ const state = (over: Partial<SyncState> = {}): SyncState => ({
   lastSyncAt: NOW - 1000,
   nextRunAt: NOW + 3_600_000,
   liveUntil: null,
-  lastSendLatestAt: null,
   retryAt: null,
   failureCount: 0,
   ...over,

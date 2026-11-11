@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
+import { NEXT_COOKIE, safeNext } from "@/lib/auth/next";
 import { createPkcePair, randomState } from "@/lib/auth/pkce";
 import {
   bufferAuthorizeUrl,
@@ -7,7 +8,7 @@ import {
 } from "@/lib/auth/buffer-oauth";
 import { baseUrl, env } from "@/lib/env";
 
-export async function GET(): Promise<NextResponse> {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   const { verifier, challenge } = createPkcePair();
   const state = randomState();
   const response = NextResponse.redirect(
@@ -28,5 +29,9 @@ export async function GET(): Promise<NextResponse> {
   } as const;
   response.cookies.set(OAUTH_STATE_COOKIE, state, options);
   response.cookies.set(OAUTH_VERIFIER_COOKIE, verifier, options);
+  // Only the consent screen asks to be returned to (lib/auth/next.ts).
+  const next = safeNext(request.nextUrl.searchParams.get("next"));
+  if (next) response.cookies.set(NEXT_COOKIE, next, options);
+  else response.cookies.delete(NEXT_COOKIE);
   return response;
 }

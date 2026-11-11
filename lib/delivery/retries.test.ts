@@ -286,4 +286,30 @@ describe("retryFailedJob", () => {
     const job = await ctx.store.getRetry("d1|g1");
     expect(job).toMatchObject({ failed: false, attempts: 1 });
   });
+
+  it("sends once when two retries of the same job arrive together", async () => {
+    const ctx = await setup([fail({ retryable: false })]);
+    await ctx.run();
+    const retry = () =>
+      retryFailedJob({ deps: ctx.deps, accountId: "acct", jobId: "d1|g1" });
+    expect((await Promise.all([retry(), retry()])).sort()).toEqual([
+      false,
+      true,
+    ]);
+    // The first delivery, then one retry.
+    expect(ctx.calls).toHaveLength(2);
+  });
+
+  it("can retry again once a retry has failed", async () => {
+    const ctx = await setup([
+      fail({ retryable: false }),
+      fail({ retryable: false }),
+    ]);
+    await ctx.run();
+    const retry = () =>
+      retryFailedJob({ deps: ctx.deps, accountId: "acct", jobId: "d1|g1" });
+    expect(await retry()).toBe(true);
+    expect(await retry()).toBe(true);
+    expect(ctx.calls).toHaveLength(3);
+  });
 });

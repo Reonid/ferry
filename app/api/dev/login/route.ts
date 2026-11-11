@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { safeNext } from "@/lib/auth/next";
 import { seedDevAccount } from "@/lib/dev/seed";
 import { getSession } from "@/lib/session";
 import { getStore } from "@/lib/store";
@@ -18,5 +19,6 @@ export async function GET(request: Request): Promise<NextResponse> {
   session.accountId = accountId;
   await session.save();
   // Relative to the request: the session cookie lives on the host that sent it.
-  return NextResponse.redirect(new URL("/app", request.url));
+  const next = safeNext(new URL(request.url).searchParams.get("next"));
+  return NextResponse.redirect(new URL(next ?? "/app", request.url));
 }

@@ -1,0 +1,118 @@
+/* One card in the middle of the page: who asks, what it gets, the answer. */
+.card {
+  max-inline-size: 36rem;
+  margin-inline: auto;
+  gap: var(--space-lg);
+}
+
+.head {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.title {
+  font-size: var(--text-2xl);
+  font-weight: var(--display-weight);
+  line-height: 1.15;
+  letter-spacing: var(--tracking-display);
+  overflow-wrap: anywhere;
+}
+
+.lede {
+  color: var(--color-ink-2);
+}
+
+/* The one part an app can't make up: where the answer goes. */
+.host {
+  font-weight: 500;
+  color: var(--color-ink);
+  overflow-wrap: anywhere;
+}
+
+/* For an app on a site Ferry doesn't know: the name proves nothing. */
+.caution {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-input);
+  background: var(--color-danger-soft);
+  color: var(--color-ink);
+  overflow-wrap: anywhere;
+}
+
+.group {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.list {
+  display: grid;
+  gap: var(--space-xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.list li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.icon {
+  flex: none;
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+  margin-block-start: 0.2em;
+  color: var(--color-accent);
+}
+
+/* The answer: the box for changes when it's on offer, then the buttons. */
+.answer {
+  display: grid;
+  gap: var(--space-lg);
+}
+
+.changes {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+/* Like the route form's channel boxes, so a tick looks the same. */
+.choice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-block-size: 44px;
+  padding: var(--space-xs) var(--space-md);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-input);
+  background: var(--color-surface);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.choice:hover {
+  border-color: var(--color-rule-strong);
+}
+
+.choice:has(input:checked) {
+  border-color: var(--color-accent);
+  background: color-mix(
+    in oklab,
+    var(--color-accent-soft) 50%,
+    var(--color-surface)
+  );
+}
+
+.choice input {
+  flex: none;
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}

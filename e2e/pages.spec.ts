@@ -162,6 +162,8 @@ test("privacy lists stored data", async ({ page }) => {
     "Posts waiting to retry, up to one day",
     "Telegram link codes, up to 15 minutes",
     "API-call counters, 2 days",
+    "AI app connections, 30 days after last use",
+    "Connection codes, up to 5 minutes",
   ])
     await expect(stored.getByText(item, { exact: true })).toBeVisible();
   for (const detail of ["AES-256-GCM", "webhook", "IDs only", "80 characters"])
@@ -172,6 +174,7 @@ test("privacy lists stored data", async ({ page }) => {
     "ferry_session, 30 days",
     "ferry_oauth_state and ferry_oauth_verifier, up to 10 minutes",
     "ferry_discord_state, up to 10 minutes",
+    "ferry_next, up to 10 minutes",
   ])
     await expect(cookies.getByText(cookie, { exact: true })).toBeVisible();
 
@@ -199,6 +202,9 @@ test("privacy lists stored data", async ({ page }) => {
     "Ferry never posts to Reddit. Opening a draft's Reddit link sends its title and text to Reddit's submit page, and nothing is posted until you press Post there.",
   );
   await expect(others).toContainText("no analytics and no ads");
+  await expect(others).toContainText(
+    "Nothing goes to an app until you connect it, and never a token, webhook or chat ID.",
+  );
 
   const leaving = page.getByRole("region", {
     name: "Signing out and deleting your data",
@@ -207,7 +213,10 @@ test("privacy lists stored data", async ({ page }) => {
     "Signing out ends this browser's session, but syncing continues until you choose Delete my data.",
   );
   await expect(leaving).toContainText(
-    "A few records run out on their own instead, on the schedule above: delivery claims, Telegram link codes, sent-alert markers, API-call counters and sync locks.",
+    "It deletes everything above, disconnects every AI app and signs you out.",
+  );
+  await expect(leaving).toContainText(
+    "A few records run out on their own instead, on the schedule above: delivery claims, Telegram link codes, connection codes, sent-alert markers, API-call counters and sync locks.",
   );
   await expect(
     page.getByRole("link", { name: "Open an issue on GitHub" }),

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireAccount } from "@/lib/auth/current";
 import { startTelegramLink } from "@/lib/destinations/telegram/link";
 import { telegramConfig } from "@/lib/env";
+import { disconnect } from "@/lib/oauth/connections";
 import {
   addRedditDestination,
   createRoute,
@@ -161,6 +162,23 @@ export async function retryAction(
       account.accountId,
       text(formData, "jobId"),
     ),
+  );
+}
+
+export async function disconnectAssistantAction(
+  _prev: State,
+  formData: FormData,
+): Promise<ActionResult> {
+  const account = await requireAccount();
+  const ended = await disconnect(
+    getStore(),
+    account.accountId,
+    text(formData, "connectionId"),
+  );
+  return done(
+    ended
+      ? { ok: true, message: "Disconnected. Its access stopped at once." }
+      : { ok: false, error: "That app was already disconnected." },
   );
 }
 

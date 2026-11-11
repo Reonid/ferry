@@ -19,11 +19,13 @@ export async function findLiveDraft(
 ): Promise<RedditDraft | null> {
   if (!TOKEN.test(token)) return null;
   const draft = await store.getDraft(token);
-  if (!draft) return null;
+  return draft && isLiveDraft(draft, now) ? draft : null;
+}
+
+/** Unexpired, and its post link is Reddit's submit page for its subreddit. */
+export function isLiveDraft(draft: RedditDraft, now: number): boolean {
   // Redis expires drafts on its own; this keeps the promise without it.
-  if (now >= draft.createdAt + DRAFT_TTL_S * 1000) return null;
+  if (now >= draft.createdAt + DRAFT_TTL_S * 1000) return false;
   const page = redditSubmitPage(draft.subreddit);
-  const toReddit =
-    draft.submitUrl === page || draft.submitUrl.startsWith(`${page}?`);
-  return toReddit ? draft : null;
+  return draft.submitUrl === page || draft.submitUrl.startsWith(`${page}?`);
 }

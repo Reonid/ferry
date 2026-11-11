@@ -19,6 +19,21 @@ export const STATUS_LABEL: Record<DeliveryStatus, string> = {
   failed: "Needs you",
 };
 
+/**
+ * Whether Ferry is checking Buffer for this account: it is when a route is
+ * running and Buffer still lets it in.
+ */
+export type SyncMode = "live" | "paused" | "empty" | "reauth";
+
+export function syncMode(
+  routes: Route[],
+  accountStatus: "active" | "needs_reauth",
+): SyncMode {
+  if (accountStatus === "needs_reauth") return "reauth";
+  if (routes.length === 0) return "empty";
+  return routes.some((r) => !r.paused) ? "live" : "paused";
+}
+
 export function plural(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`;
 }

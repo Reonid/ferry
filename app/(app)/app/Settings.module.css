@@ -70,3 +70,53 @@
   border-radius: var(--radius-input);
   background: var(--color-danger-soft);
 }
+
+/* A third group, across both columns, under a rule. */
+.grid > .wide {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 900px) {
+  .grid > .group.wide {
+    margin-block-start: var(--space-lg);
+    padding-block-start: var(--space-lg);
+    padding-inline-start: 0;
+    border-block-start: 1px solid var(--color-rule);
+    border-inline-start: 0;
+  }
+}
+
+.address {
+  inline-size: 100%;
+  max-inline-size: 34rem;
+}
+
+.assistants {
+  display: grid;
+  inline-size: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* One app per line: who it is and when it came, then its Disconnect. */
+.assistant {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs) var(--space-md);
+  padding-block: var(--space-sm);
+  border-block-start: 1px solid var(--color-rule);
+}
+
+.who {
+  display: grid;
+  gap: var(--space-3xs);
+  min-width: 0;
+}
+
+.app {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}

@@ -65,27 +65,40 @@ export async function processRetries(args: {
   return dispatched;
 }
 
-/** Re-queues a failed job for its owner and dispatches it now. */
+/** Long enough to cover one dispatch; released as soon as it ends. */
+const RETRY_CLAIM_S = 60;
+
+/**
+ * Re-queues a failed job for its owner and dispatches it now. Two retries
+ * of one job at once, from two tabs or an AI app's parallel calls, send it
+ * once: only the one holding the claim reads the job and goes on.
+ */
 export async function retryFailedJob(args: {
   deps: DeliverDeps;
   accountId: string;
   jobId: string;
 }): Promise<boolean> {
   const { deps } = args;
-  const job = await deps.store.getRetry(args.jobId);
-  if (!job || job.accountId !== args.accountId || !job.failed) return false;
-  const account = await deps.store.getAccount(job.accountId);
-  const destination = await deps.store.getDestination(job.destinationId);
-  if (
-    !account ||
-    !destination ||
-    (destination.kind !== "reddit" && destination.status === "broken")
-  ) {
-    return false;
+  const claim = `retry:${args.jobId}`;
+  if (!(await deps.store.claim(claim, RETRY_CLAIM_S))) return false;
+  try {
+    const job = await deps.store.getRetry(args.jobId);
+    if (!job || job.accountId !== args.accountId || !job.failed) return false;
+    const account = await deps.store.getAccount(job.accountId);
+    const destination = await deps.store.getDestination(job.destinationId);
+    if (
+      !account ||
+      !destination ||
+      (destination.kind !== "reddit" && destination.status === "broken")
+    ) {
+      return false;
+    }
+    const fresh = { ...job, failed: false, attempts: 0 };
+    await deps.store.putRetry(fresh, deps.now() + WRITE_AHEAD_MS);
+    await setPending(deps, account, fresh.mirror, destination.id);
+    await runJob({ deps, account, destination, job: fresh });
+    return true;
+  } finally {
+    await deps.store.releaseClaims([claim]);
   }
-  const fresh = { ...job, failed: false, attempts: 0 };
-  await deps.store.putRetry(fresh, deps.now() + WRITE_AHEAD_MS);
-  await setPending(deps, account, fresh.mirror, destination.id);
-  await runJob({ deps, account, destination, job: fresh });
-  return true;
 }

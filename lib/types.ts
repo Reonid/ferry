@@ -212,10 +212,46 @@ export interface SyncState {
   lastSyncAt: number | null;
   nextRunAt: number | null;
   liveUntil: number | null;
-  lastSendLatestAt: number | null;
   retryAt: number | null;
   /** Checks in a row that failed; 0 after a check succeeds. */
   failureCount: number;
+}
+/** A one-time code from the consent screen, waiting for its token request. */
+export interface OAuthCode {
+  accountId: string;
+  clientId: string;
+  clientName: string | null;
+  redirectUri: string;
+  /** Whether the request named the redirect URI, so the token request must too. */
+  redirectUriSent: boolean;
+  codeChallenge: string;
+  scope: string;
+  resource: string;
+  createdAt: number;
+}
+/** One AI app connected to an account through Ferry's MCP server. */
+export interface McpGrant {
+  id: string;
+  accountId: string;
+  clientId: string;
+  /** Chosen by the app itself. */
+  clientName: string | null;
+  /** Where the app's sign-in returned, such as "claude.ai". */
+  redirectHost: string;
+  scope: string;
+  resource: string;
+  createdAt: number;
+  refreshedAt: number;
+  /** SHA-256 of the current tokens; the tokens themselves are never kept. */
+  accessHash: string;
+  refreshHash: string;
+}
+export interface McpAccess {
+  grantId: string;
+  accountId: string;
+  scope: string;
+  resource: string;
+  expiresAt: number;
 }
 export interface RetryJob {
   id: string;

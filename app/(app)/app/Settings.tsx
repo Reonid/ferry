@@ -1,15 +1,26 @@
 "use client";
 
-import { useId, useRef } from "react";
+import { useId } from "react";
+import { relativeTime } from "@/lib/dashboard/view";
+import type { Connection } from "@/lib/oauth/connections";
 import type { ActionResult } from "@/lib/routes/manage";
 import type { PublicDestination } from "@/lib/types";
+import CopyField from "@/app/components/CopyField";
 import ui from "@/app/components/ui.module.css";
 import {
   deleteMyDataAction,
+  disconnectAssistantAction,
   refreshChannelsAction,
   setNotifyAction,
 } from "./actions";
-import { cx, FormStatus, SubmitButton, useFormAction } from "./FormParts";
+import {
+  cx,
+  FormStatus,
+  SectionStatus,
+  SubmitButton,
+  useFormAction,
+  useSectionStatus,
+} from "./FormParts";
 import TelegramConnect from "./TelegramConnect";
 import styles from "./Settings.module.css";
 
@@ -21,21 +32,69 @@ async function saveNotify(
   return result.ok ? { ok: true, message: "Saved." } : result;
 }
 
-/** Two things to set: where alerts go, and the Buffer account itself. */
+/** One connected AI app, with the button that ends its access. */
+function AssistantRow({
+  assistant,
+  now,
+  onGone,
+}: {
+  assistant: Connection;
+  now: number;
+  onGone: (text: string) => void;
+}) {
+  // The row leaves with its own status line, so the section reports.
+  const ending = useFormAction(disconnectAssistantAction, {
+    onResult: (answer) => {
+      if (answer.ok) onGone(`${assistant.name} is disconnected.`);
+    },
+  });
+  return (
+    <li className={styles.assistant}>
+      <span className={styles.who}>
+        <span className={styles.app}>{assistant.name}</span>
+        <span className={ui.hint}>
+          {assistant.host} ·{" "}
+          {assistant.canWrite ? "can make changes" : "reads only"} · connected{" "}
+          {relativeTime(assistant.connectedAt, now)}
+        </span>
+      </span>
+      <form onSubmit={ending.onSubmit}>
+        <input type="hidden" name="connectionId" value={assistant.id} />
+        <SubmitButton
+          variant="quiet-danger"
+          small
+          busy={ending.pending}
+          busyLabel="Disconnecting…"
+        >
+          Disconnect<span className="visually-hidden"> {assistant.name}</span>
+        </SubmitButton>
+      </form>
+      <FormStatus result={ending.result?.ok ? null : ending.result} />
+    </li>
+  );
+}
+
+/** Where alerts go, the Buffer account itself, and connected AI apps. */
 export default function Settings({
   accountName,
   destinations,
   notifyDestinationId,
   telegramEnabled,
+  assistants,
+  mcpUrl,
+  now,
 }: {
   accountName: string | null;
   destinations: PublicDestination[];
   notifyDestinationId: string | null;
   telegramEnabled: boolean;
+  assistants: Connection[];
+  mcpUrl: string;
+  now: number;
 }) {
   const notify = useFormAction(saveNotify);
   const refresh = useFormAction(refreshChannelsAction);
-  const heading = useRef<HTMLHeadingElement>(null);
+  const { heading, message, report } = useSectionStatus();
   const selectId = useId();
   const hintId = useId();
   const targets = destinations.filter(
@@ -125,7 +184,8 @@ export default function Settings({
             <div className={styles.confirm}>
               <p>
                 This deletes your routes, destinations, activity and drafts from
-                Ferry, and signs you out. Nothing changes in Buffer.
+                Ferry, disconnects any AI apps, and signs you out. Nothing
+                changes in Buffer.
               </p>
               <form action={deleteMyDataAction}>
                 <button type="submit" className={cx(ui.button, ui.danger)}>
@@ -134,6 +194,34 @@ export default function Settings({
               </form>
             </div>
           </details>
+        </div>
+
+        <div className={cx(styles.group, styles.wide)}>
+          <h3 className={ui.label}>AI assistants</h3>
+          <p className={ui.hint}>
+            Ask Claude, ChatGPT or another MCP app what Ferry carried, or to
+            polish a Reddit draft. Add a custom connector with this address,
+            then sign in with Buffer when it asks. It reads your routes,
+            activity, drafts and alerts. Allow changes when it connects, and it
+            can also pause, resume, add and test routes and send failed posts
+            again. It can&apos;t delete anything.
+          </p>
+          <div className={styles.address}>
+            <CopyField label="Connector address" value={mcpUrl} />
+          </div>
+          {assistants.length > 0 && (
+            <ul className={styles.assistants} aria-label="Connected apps">
+              {assistants.map((assistant) => (
+                <AssistantRow
+                  key={assistant.id}
+                  assistant={assistant}
+                  now={now}
+                  onGone={report}
+                />
+              ))}
+            </ul>
+          )}
+          <SectionStatus message={message} />
         </div>
       </div>
     </section>

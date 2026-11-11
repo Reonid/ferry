@@ -5,6 +5,7 @@ import {
   OAUTH_STATE_COOKIE,
   OAUTH_VERIFIER_COOKIE,
 } from "@/lib/auth/buffer-oauth";
+import { NEXT_COOKIE, safeNext } from "@/lib/auth/next";
 import { logSignInFailure, saveSignIn } from "@/lib/auth/sign-in";
 import { bufferRequest } from "@/lib/buffer/client";
 import { mapAccount, mapChannel } from "@/lib/buffer/map";
@@ -74,6 +75,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   let target = "/app";
   try {
     await signIn(request);
+    // Back to the consent screen when that's where sign-in started.
+    target = safeNext(request.cookies.get(NEXT_COOKIE)?.value) ?? target;
   } catch (err) {
     // Only the error's name and OAuth code: details could echo codes or tokens.
     logSignInFailure("Buffer sign-in", err);
@@ -82,5 +85,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const response = NextResponse.redirect(`${baseUrl()}${target}`);
   response.cookies.delete(OAUTH_STATE_COOKIE);
   response.cookies.delete(OAUTH_VERIFIER_COOKIE);
+  response.cookies.delete(NEXT_COOKIE);
   return response;
 }
