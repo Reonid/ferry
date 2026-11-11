@@ -40,8 +40,29 @@ const decide = (over: Partial<Parameters<typeof decideConsent>[0]> = {}) =>
     binding: consentBinding(fx.key, "acct"),
     params: params(),
     allow: true,
+    write: false,
     ...over,
   });
+
+/** The scope of the tokens an answer's code trades for. */
+async function grantedScope(
+  over: Partial<Parameters<typeof decideConsent>[0]>,
+): Promise<string> {
+  const url = location(await decide(over));
+  const tokens = await tokenRequest(
+    fx.ctx(),
+    new URLSearchParams({
+      grant_type: "authorization_code",
+      client_id: claude.clientId,
+      code: url.searchParams.get("code") ?? "",
+      code_verifier: pkce.verifier,
+      redirect_uri: CLAUDE_CALLBACK,
+    }),
+    null,
+  );
+  if (!tokens.ok) throw new Error(tokens.body.error);
+  return tokens.body.scope;
+}
 
 function location(result: Awaited<ReturnType<typeof decideConsent>>): URL {
   if (result.status !== 303) throw new Error(`got ${result.status}`);
@@ -67,6 +88,23 @@ describe("decideConsent", () => {
       null,
     );
     expect(tokens.ok).toBe(true);
+  });
+
+  it("lets the app make changes only when the owner ticks the box", async () => {
+    const asks = params({ scope: "ferry:read ferry:write" });
+    expect(await grantedScope({ params: asks, write: true })).toBe(
+      "ferry:read ferry:write",
+    );
+    expect(await grantedScope({ params: asks, write: false })).toBe(
+      "ferry:read",
+    );
+    // A tick sent for an app that only asked to read adds nothing.
+    expect(
+      await grantedScope({
+        params: params({ scope: "ferry:read" }),
+        write: true,
+      }),
+    ).toBe("ferry:read");
   });
 
   it("sends Cancel back as access_denied", async () => {

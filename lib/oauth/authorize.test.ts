@@ -48,6 +48,7 @@ describe("checkAuthorizationRequest", () => {
         state: "xyz",
         codeChallenge: challenge,
         scope: "ferry:read",
+        offerWrite: false,
       },
     });
   });
@@ -168,13 +169,20 @@ describe("checkAuthorizationRequest", () => {
     );
   });
 
-  it("grants ferry:read whatever scope is asked for", () => {
-    for (const scope of [null, "", "openid offline_access", "ferry:read"]) {
-      expect(
-        checkAuthorizationRequest(params({ scope }), ctx),
-        String(scope),
-      ).toMatchObject({ ok: true, request: { scope: "ferry:read" } });
-    }
+  it("starts at ferry:read, and offers changes only to an app that asks", () => {
+    const check = (scope: string | null) =>
+      checkAuthorizationRequest(params({ scope }), ctx);
+    for (const scope of ["", "openid offline_access", "ferry:read"])
+      expect(check(scope), scope).toMatchObject({
+        ok: true,
+        request: { scope: "ferry:read", offerWrite: false },
+      });
+    // No scope at all asks for everything Ferry has. The owner still decides.
+    for (const scope of [null, "ferry:write", "ferry:read ferry:write"])
+      expect(check(scope), String(scope)).toMatchObject({
+        ok: true,
+        request: { scope: "ferry:read", offerWrite: true },
+      });
   });
 
   it("works without state", () => {

@@ -32,9 +32,10 @@ export const CHANNELS_QUERY = `query Channels($org: OrganizationId!) {
 }
 ${CHANNEL_FIELDS}`;
 
+/** The newest sent posts on some channels: a test send takes the first its route's tags allow. */
 export const LATEST_SENT_QUERY = `query LatestSent($org: OrganizationId!, $ch: [ChannelId!]) {
   posts(
-    first: 1
+    first: 20
     input: {
       organizationId: $org
       filter: { channelIds: $ch, status: [sent] }

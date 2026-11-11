@@ -1,6 +1,7 @@
 import { ferryMcpServer } from "@/lib/mcp/tools";
 import { handleMcpPost } from "@/lib/mcp/protocol";
 import { baseUrl } from "@/lib/env";
+import { allowsChanges } from "@/lib/oauth/metadata";
 import {
   CORS,
   json,
@@ -11,6 +12,7 @@ import {
 } from "@/lib/oauth/http";
 import { checkAccessToken } from "@/lib/oauth/tokens";
 import { getStore } from "@/lib/store";
+import { productionDeps } from "@/lib/sync/production";
 
 /**
  * Ferry's MCP endpoint (Streamable HTTP). Every method needs a token, so
@@ -33,7 +35,13 @@ async function signedIn(request: Request) {
   // Deleting an account deletes its tokens; this covers a request mid-way.
   if (!(await store.getAccount(check.accountId)))
     return { ok: false as const, response: unauthorized(true) };
-  return { ok: true as const, store, now, accountId: check.accountId };
+  return {
+    ok: true as const,
+    store,
+    now,
+    accountId: check.accountId,
+    write: allowsChanges(check.scope),
+  };
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -51,7 +59,8 @@ export async function POST(request: Request): Promise<Response> {
     );
   const base = baseUrl();
   const reply = await handleMcpPost(
-    ferryMcpServer(base),
+    // The token's scope decides which tools this connection gets.
+    ferryMcpServer(base, { write: auth.write }),
     body,
     // An empty header counts as none.
     request.headers.get("mcp-protocol-version") || null,
@@ -60,6 +69,7 @@ export async function POST(request: Request): Promise<Response> {
       accountId: auth.accountId,
       now: auth.now,
       baseUrl: base,
+      syncDeps: productionDeps,
     },
   );
   if (reply.body === null)

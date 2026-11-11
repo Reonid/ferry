@@ -212,7 +212,6 @@ export interface SyncState {
   lastSyncAt: number | null;
   nextRunAt: number | null;
   liveUntil: number | null;
-  lastSendLatestAt: number | null;
   retryAt: number | null;
   /** Checks in a row that failed; 0 after a check succeeds. */
   failureCount: number;

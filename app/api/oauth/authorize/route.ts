@@ -3,7 +3,7 @@ import { decideConsent } from "@/lib/oauth/consent";
 import { oauthContext, readBody } from "@/lib/oauth/http";
 import { getSession } from "@/lib/session";
 
-/** The form holds two short fields; the request itself is in the query. */
+/** The form holds three short fields; the request itself is in the query. */
 const MAX_BODY = 1024;
 
 /**
@@ -21,6 +21,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     binding: form.get("account"),
     params: request.nextUrl.searchParams,
     allow: form.get("decision") === "allow",
+    write: form.get("write") === "yes",
   });
   if (result.status !== 303)
     return new Response(result.message, {

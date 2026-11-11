@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
 import { deriveKey } from "../crypto";
 import { authorizationRedirect, checkAuthorizationRequest } from "./authorize";
+import { MCP_SCOPES } from "./metadata";
 import { issueCode, type OAuthContext } from "./tokens";
 
 /**
@@ -30,6 +31,8 @@ export async function decideConsent(args: {
   binding: string | null;
   params: URLSearchParams;
   allow: boolean;
+  /** The "make changes" box. It counts only where the screen offered it. */
+  write: boolean;
 }): Promise<ConsentResult> {
   const { ctx, params } = args;
   if (args.origin !== new URL(ctx.issuer).origin)
@@ -55,8 +58,10 @@ export async function decideConsent(args: {
     };
 
   const { request } = check;
+  const scope =
+    request.offerWrite && args.write ? MCP_SCOPES.join(" ") : request.scope;
   const answer: Record<string, string> = args.allow
-    ? { code: await issueCode(ctx, account.accountId, request) }
+    ? { code: await issueCode(ctx, account.accountId, { ...request, scope }) }
     : {
         error: "access_denied",
         error_description: "The owner chose not to connect Ferry.",

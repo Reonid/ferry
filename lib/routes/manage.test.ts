@@ -125,6 +125,97 @@ describe("routes", () => {
     expect(await store.dueAccounts(NOW, 10)).toContain("acct");
   });
 
+  it("returns the new route's id, and refuses one that already exists", async () => {
+    const { store } = makeSyncDeps();
+    await store.putAccount(account());
+    await store.putChannels("acct", channels);
+    await store.putDestination(discordDest("d1"));
+    const input = { channelIds: ["ch"], destinationId: "d1", tagNames: ["A"] };
+    const first = await createRoute(store, "acct", input, NOW);
+    const [route] = await store.listRoutes("acct");
+    expect(first).toEqual({
+      ok: true,
+      message: "Route added.",
+      routeId: route!.id,
+    });
+    // The same channels, destination and tags, however they're written.
+    expect(
+      await createRoute(
+        store,
+        "acct",
+        { ...input, channelIds: ["ch", "ch"], tagNames: [" a "] },
+        NOW,
+      ),
+    ).toEqual({ ok: false, error: "That route already exists." });
+    await setRoutePaused(store, "acct", route!.id, true, NOW);
+    expect(await createRoute(store, "acct", input, NOW)).toEqual({
+      ok: false,
+      error: "That route already exists, paused. Resume it instead.",
+    });
+    // Other tags make another route.
+    expect(
+      (await createRoute(store, "acct", { ...input, tagNames: [] }, NOW)).ok,
+    ).toBe(true);
+    expect(await store.listRoutes("acct")).toHaveLength(2);
+  });
+
+  it("keeps at most 50 routes", async () => {
+    const { store } = makeSyncDeps();
+    await store.putAccount(account());
+    await store.putChannels("acct", channels);
+    await store.putDestination(discordDest("d1"));
+    for (let i = 0; i < 50; i++)
+      await store.putRoute({
+        id: `r${i}`,
+        accountId: "acct",
+        channelIds: ["ch"],
+        tagNames: [`t${i}`],
+        destinationId: "d1",
+        activeSince: 0,
+        paused: false,
+        createdAt: i,
+      });
+    expect(
+      await createRoute(
+        store,
+        "acct",
+        { channelIds: ["ch"], destinationId: "d1", tagNames: [] },
+        NOW,
+      ),
+    ).toEqual({
+      ok: false,
+      error: "You have 50 routes, the most Ferry keeps. Delete one first.",
+    });
+  });
+
+  it("doesn't bring back a route deleted while it was being paused", async () => {
+    const { store } = makeSyncDeps();
+    await store.putAccount(account());
+    await store.putChannels("acct", channels);
+    await store.putDestination(discordDest("d1"));
+    const created = await createRoute(
+      store,
+      "acct",
+      { channelIds: ["ch"], destinationId: "d1", tagNames: [] },
+      NOW,
+    );
+    if (!created.ok) throw new Error(created.error);
+    // The owner deletes it after Ferry read it and before Ferry writes it back.
+    const racing = {
+      ...store,
+      async getRoute(id: string) {
+        const route = await store.getRoute(id);
+        await store.deleteRoute("acct", id);
+        return route;
+      },
+    };
+    expect(
+      await setRoutePaused(racing, "acct", created.routeId, true, NOW),
+    ).toEqual({ ok: false, error: "That route no longer exists." });
+    expect(await store.getRoute(created.routeId)).toBeNull();
+    expect(await store.listRoutes("acct")).toEqual([]);
+  });
+
   it("only touches the caller's own routes", async () => {
     const { store } = makeSyncDeps();
     await store.putAccount(account());
@@ -355,19 +446,110 @@ describe("sendLatestPost", () => {
     });
     expect(calls).toHaveLength(1);
     expect(await store.getApiCalls("acct", "1970-01-01")).toBe(1);
-    expect((await store.getSyncState("acct")).lastSendLatestAt).toBe(NOW);
   });
 
-  it("rate-limits test sends", async () => {
-    const { deps, store, routeId, buffer } = await seedSend();
-    await store.putSyncState("acct", {
-      ...(await store.getSyncState("acct")),
-      lastSendLatestAt: NOW - SEND_LATEST_COOLDOWN_MS + 1000,
+  it("rate-limits test sends for the cooldown", async () => {
+    vi.useFakeTimers();
+    try {
+      const { deps, routeId, buffer } = await seedSend();
+      buffer.mockResolvedValue({
+        data: { posts: { edges: [{ node: rawPost() }] } },
+        rateLimit: null,
+      });
+      expect((await sendLatestPost(deps, "acct", routeId)).ok).toBe(true);
+      expect(await sendLatestPost(deps, "acct", routeId)).toEqual({
+        ok: false,
+        error: "Wait a few seconds before sending another test.",
+      });
+      expect(buffer).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(SEND_LATEST_COOLDOWN_MS);
+      expect((await sendLatestPost(deps, "acct", routeId)).ok).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("sends one test when two arrive together", async () => {
+    const { deps, routeId, buffer, calls } = await seedSend();
+    buffer.mockResolvedValue({
+      data: { posts: { edges: [{ node: rawPost() }] } },
+      rateLimit: null,
     });
-    const r = await sendLatestPost(deps, "acct", routeId);
-    expect(r).toEqual({
+    const both = await Promise.all([
+      sendLatestPost(deps, "acct", routeId),
+      sendLatestPost(deps, "acct", routeId),
+    ]);
+    expect(both.filter((r) => r.ok)).toHaveLength(1);
+    expect(buffer).toHaveBeenCalledTimes(1);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("sends the newest post the route's tags take", async () => {
+    const ctx = makeSyncDeps();
+    await ctx.store.putAccount(account());
+    await ctx.store.putChannels("acct", [channel()]);
+    await ctx.store.putDestination(discordDest("d1"));
+    const created = await createRoute(
+      ctx.store,
+      "acct",
+      { channelIds: ["ch"], destinationId: "d1", tagNames: ["Launch"] },
+      NOW,
+    );
+    if (!created.ok) throw new Error(created.error);
+    ctx.buffer.mockResolvedValue({
+      data: {
+        posts: {
+          edges: [
+            { node: rawPost({ id: "p2", text: "Newer, untagged" }) },
+            {
+              node: rawPost({
+                id: "p1",
+                text: "Older, tagged",
+                tags: [{ id: "t1", name: "launch" }],
+              }),
+            },
+          ],
+        },
+      },
+      rateLimit: null,
+    });
+    expect(await sendLatestPost(ctx.deps, "acct", created.routeId)).toEqual({
+      ok: true,
+      message: "Sent your latest post.",
+    });
+    expect(JSON.stringify(ctx.calls)).toContain("Older, tagged");
+    expect(JSON.stringify(ctx.calls)).not.toContain("Newer, untagged");
+  });
+
+  it("says when no sent post has the route's tags", async () => {
+    const ctx = makeSyncDeps();
+    await ctx.store.putAccount(account());
+    await ctx.store.putChannels("acct", [channel()]);
+    await ctx.store.putDestination(discordDest("d1"));
+    const created = await createRoute(
+      ctx.store,
+      "acct",
+      { channelIds: ["ch"], destinationId: "d1", tagNames: ["launch"] },
+      NOW,
+    );
+    if (!created.ok) throw new Error(created.error);
+    ctx.buffer.mockResolvedValue({
+      data: { posts: { edges: [{ node: rawPost() }] } },
+      rateLimit: null,
+    });
+    expect(await sendLatestPost(ctx.deps, "acct", created.routeId)).toEqual({
       ok: false,
-      error: "Wait a few seconds before sending another test.",
+      error: "No sent posts with this route's tags yet.",
+    });
+    expect(ctx.calls).toHaveLength(0);
+  });
+
+  it("refuses a paused route without calling Buffer", async () => {
+    const { deps, store, routeId, buffer } = await seedSend();
+    await setRoutePaused(store, "acct", routeId, true, NOW);
+    expect(await sendLatestPost(deps, "acct", routeId)).toEqual({
+      ok: false,
+      error: "Resume this route first.",
     });
     expect(buffer).not.toHaveBeenCalled();
   });

@@ -15,13 +15,18 @@ export function publishTime(post: Post): number | null {
 export function routeCoversPost(post: Post, route: Route): boolean {
   const at = publishTime(post);
   if (at === null || route.paused) return false;
-  const tags = new Set(post.tags.map((t) => t.name.toLowerCase()));
   return (
     route.channelIds.includes(post.channelId) &&
     at >= route.activeSince &&
-    (route.tagNames.length === 0 ||
-      route.tagNames.some((n) => tags.has(n.toLowerCase())))
+    routeTakesTags(post, route)
   );
+}
+
+/** Whether a route's tag filter lets a post through: no tags take every post. */
+export function routeTakesTags(post: Post, route: Route): boolean {
+  if (route.tagNames.length === 0) return true;
+  const tags = new Set(post.tags.map((t) => t.name.toLowerCase()));
+  return route.tagNames.some((n) => tags.has(n.toLowerCase()));
 }
 
 export function routesForPost(post: Post, routes: Route[]): Route[] {

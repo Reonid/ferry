@@ -159,7 +159,6 @@ describe("sync schedule", () => {
       lastSyncAt: null,
       nextRunAt: null,
       liveUntil: null,
-      lastSendLatestAt: null,
       retryAt: null,
       failureCount: 0,
     });

@@ -62,6 +62,8 @@ export const TELEGRAM_OFFSET_TTL_S = 24 * 60 * 60;
 export const TELEGRAM_LINK_CALL_TIMEOUT_MS = 3 * SECOND;
 export const REDDIT_TITLE_MAX = 120;
 export const SEND_LATEST_COOLDOWN_MS = 30 * SECOND;
+/** Plenty for one person, and a bound on an AI app told to add routes in a loop. */
+export const MAX_ROUTES = 50;
 /** How long an AI app has to turn a consent code into tokens. */
 export const OAUTH_CODE_TTL_S = 5 * 60;
 export const MCP_ACCESS_TTL_S = 60 * 60;

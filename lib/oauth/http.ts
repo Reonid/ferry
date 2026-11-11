@@ -1,7 +1,7 @@
 import { loadKey } from "../crypto";
 import { baseUrl, env } from "../env";
 import { getStore } from "../store";
-import { MCP_SCOPE, oauthUrls, type OAuthUrls } from "./metadata";
+import { MCP_SCOPES, oauthUrls, type OAuthUrls } from "./metadata";
 import type { OAuthContext } from "./tokens";
 
 /**
@@ -88,6 +88,8 @@ export function oauthContext(): OAuthContext {
 /**
  * RFC 6750's 401, pointing at the resource metadata so an AI app can find
  * Ferry's sign-in (RFC 9728). invalid_token only when a token was sent.
+ * The scope names both scopes: an app that follows MCP asks for what the
+ * challenge names, and the owner picks on the consent screen.
  */
 export function unauthorized(tokenSent: boolean): Response {
   const { resourceMetadata } = urls();
@@ -100,7 +102,7 @@ export function unauthorized(tokenSent: boolean): Response {
       ? ['error="invalid_token"', `error_description="${description}"`]
       : []),
     `resource_metadata="${resourceMetadata}"`,
-    `scope="${MCP_SCOPE}"`,
+    `scope="${MCP_SCOPES.join(" ")}"`,
   ].join(", ");
   return json(
     {

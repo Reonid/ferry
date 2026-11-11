@@ -126,7 +126,7 @@ const EXPIRING: Item[] = [
     name: "AI app connections",
     time: "30 days after last use",
     detail:
-      "For each app you connect to Ferry's MCP server: the name it gives itself, the site its sign-in returned to, when you connected it, and one-way SHA-256 fingerprints of its current tokens and of the ones it has used up, so a copy that comes back ends the connection. Ferry never keeps the tokens themselves, and each access token works for an hour. Disconnect an app under Settings at any time.",
+      "For each app you connect to Ferry's MCP server: the name it gives itself, the site its sign-in returned to, whether you let it make changes, when you connected it, and one-way SHA-256 fingerprints of its current tokens and of the ones it has used up, so a copy that comes back ends the connection. Ferry never keeps the tokens themselves, and each access token works for an hour. Disconnect an app under Settings at any time.",
   },
   {
     name: "Connection codes",
@@ -278,9 +278,11 @@ export default function PrivacyPage() {
                 Anthropic or ChatGPT by OpenAI, receive what their tools ask
                 Ferry for: your routes and the names of your channels and
                 destinations, the first 80 characters of recent posts, your
-                Reddit drafts and your alerts. Nothing goes to an app until you
-                connect it, and never a token, webhook or chat ID. What it does
-                next is up to that app&apos;s own privacy policy.
+                Reddit drafts and your alerts. An app you let make changes can
+                also pause, resume and add routes, send a failed post again and
+                send a test post, but never delete anything. Nothing goes to an
+                app until you connect it, and never a token, webhook or chat ID.
+                What it does next is up to that app&apos;s own privacy policy.
               </li>
             </ul>
             <p>

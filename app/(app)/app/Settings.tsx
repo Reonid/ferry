@@ -53,7 +53,8 @@ function AssistantRow({
       <span className={styles.who}>
         <span className={styles.app}>{assistant.name}</span>
         <span className={ui.hint}>
-          {assistant.host} · connected{" "}
+          {assistant.host} ·{" "}
+          {assistant.canWrite ? "can make changes" : "reads only"} · connected{" "}
           {relativeTime(assistant.connectedAt, now)}
         </span>
       </span>
@@ -200,8 +201,10 @@ export default function Settings({
           <p className={ui.hint}>
             Ask Claude, ChatGPT or another MCP app what Ferry carried, or to
             polish a Reddit draft. Add a custom connector with this address,
-            then sign in with Buffer when it asks. It can read your routes,
-            activity, drafts and alerts, and can&apos;t change them.
+            then sign in with Buffer when it asks. It reads your routes,
+            activity, drafts and alerts. Allow changes when it connects, and it
+            can also pause, resume, add and test routes and send failed posts
+            again. It can&apos;t delete anything.
           </p>
           <div className={styles.address}>
             <CopyField label="Connector address" value={mcpUrl} />
