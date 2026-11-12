@@ -208,10 +208,10 @@ export default async function AuthorizePage(
               Also let {app} make changes
             </label>
             <p id="changes-detail" className={ui.hint}>
-              It could pause and resume routes, add routes, send failed posts
-              again, and send a route&apos;s latest post as a test. It still
-              couldn&apos;t delete anything or connect new destinations. Leave
-              this off and it can only read.
+              It could add subreddits, pause and resume routes, add routes, send
+              failed posts again, and send a route&apos;s latest post as a test.
+              It still couldn&apos;t delete anything or connect Discord or
+              Telegram. Leave this off and it can only read.
             </p>
           </div>
         )}

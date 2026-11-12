@@ -57,11 +57,12 @@ async function data(name: string, args: Record<string, unknown> = {}) {
 }
 
 describe("the tool list", () => {
-  it("has three read-only tools, each declaring every hint", () => {
+  it("has four read-only tools, each declaring every hint", () => {
     expect(server.tools.map((t) => t.definition.name)).toEqual([
       "get_overview",
       "list_activity",
       "list_reddit_drafts",
+      "make_reddit_link",
     ]);
     for (const { definition } of server.tools) {
       expect(definition.annotations).toMatchObject({
@@ -115,19 +116,21 @@ describe("the tool list", () => {
 });
 
 describe("the tool list for a connection allowed to make changes", () => {
-  it("adds five tools that change things, each one confirmed by the app", () => {
+  it("adds six tools that change things, each one confirmed by the app", () => {
     expect(writer.tools.map((t) => t.definition.name)).toEqual([
       "get_overview",
       "list_activity",
       "list_reddit_drafts",
+      "make_reddit_link",
       "pause_route",
       "resume_route",
+      "add_subreddit",
       "create_route",
       "retry_delivery",
       "send_latest_post",
     ]);
     const scheme = [{ type: "oauth2", scopes: ["ferry:write"] }];
-    for (const { definition } of writer.tools.slice(3)) {
+    for (const { definition } of writer.tools.slice(4)) {
       expect(definition.annotations, definition.name).toMatchObject({
         readOnlyHint: false,
       });
@@ -432,6 +435,108 @@ describe("list_reddit_drafts", () => {
   });
 });
 
+describe("make_reddit_link", () => {
+  it("fills Reddit's form with an improved text post", async () => {
+    expect(
+      await data("make_reddit_link", {
+        subreddit: "r/SideProject",
+        title: "Ferry: what Buffer publishes, in Discord",
+        body: "It forwards each post.\n\nFeedback welcome!",
+      }),
+    ).toEqual({
+      submitUrl:
+        "https://www.reddit.com/r/SideProject/submit?type=TEXT&title=Ferry%3A%20what%20Buffer%20publishes%2C%20in%20Discord&text=It%20forwards%20each%20post.%0A%0AFeedback%20welcome!",
+      filledIn: "everything",
+      message:
+        "Give the owner this link. It opens Reddit's form filled in, and they post it themselves.",
+    });
+  });
+
+  it("makes a link post from a url", async () => {
+    expect(
+      await data("make_reddit_link", {
+        subreddit: "SideProject",
+        title: "Ferry",
+        url: "https://ferry.example/",
+      }),
+    ).toMatchObject({
+      submitUrl:
+        "https://www.reddit.com/r/SideProject/submit?type=LINK&title=Ferry&url=https%3A%2F%2Fferry.example%2F",
+      filledIn: "everything",
+    });
+  });
+
+  it("fills in only the title when the body is too long for a link", async () => {
+    expect(
+      await data("make_reddit_link", {
+        subreddit: "r/SideProject",
+        title: "Long",
+        body: "word ".repeat(2000),
+      }),
+    ).toEqual({
+      submitUrl:
+        "https://www.reddit.com/r/SideProject/submit?type=TEXT&title=Long",
+      filledIn: "title only",
+      message:
+        "The body is too long for a link, so only the title is filled in. Give the owner the link and the body to paste.",
+    });
+  });
+
+  it("refuses what Reddit wouldn't take", async () => {
+    const refusals: [Record<string, unknown>, string][] = [
+      [
+        { title: "T" },
+        "subreddit must be a subreddit's name, like r/SideProject.",
+      ],
+      [
+        { subreddit: "!!", title: "T" },
+        "subreddit must be a subreddit's name, like r/SideProject.",
+      ],
+      [{ subreddit: "r/SideProject" }, "title must be 1 to 300 characters."],
+      [
+        { subreddit: "r/SideProject", title: " " },
+        "title must be 1 to 300 characters.",
+      ],
+      [
+        { subreddit: "r/SideProject", title: "x".repeat(301) },
+        "title must be 1 to 300 characters.",
+      ],
+      [
+        {
+          subreddit: "r/SideProject",
+          title: "T",
+          body: "B",
+          url: "https://a.example",
+        },
+        "Give a body for a text post or a url for a link post, not both.",
+      ],
+      [
+        { subreddit: "r/SideProject", title: "T", url: "ftp://a.example" },
+        "url must be a web link starting with https:// or http://.",
+      ],
+      [
+        { subreddit: "r/SideProject", title: "T", body: 7 },
+        "body must be text.",
+      ],
+      [
+        { subreddit: "r/SideProject", title: "T", body: "x".repeat(40_001) },
+        "body must be at most 40,000 characters, Reddit's limit.",
+      ],
+      [
+        { subreddit: "r/SideProject", title: "T", flair: "x" },
+        "Unknown argument: flair. This tool takes subreddit, title, body, url.",
+      ],
+    ];
+    for (const [args, message] of refusals)
+      expect(await run("make_reddit_link", args), JSON.stringify(args)).toEqual(
+        {
+          ok: false,
+          message,
+        },
+      );
+  });
+});
+
 describe("pause_route and resume_route", () => {
   it("pauses a route and says so", async () => {
     expect(
@@ -492,6 +597,71 @@ describe("pause_route and resume_route", () => {
       ok: false,
       message: expect.stringContaining("Unknown argument"),
     });
+  });
+});
+
+describe("add_subreddit", () => {
+  it("adds a subreddit that create_route can send to, once", async () => {
+    const added = await data("add_subreddit", { subreddit: "r/buffer" });
+    expect(added).toMatchObject({
+      destination: {
+        id: expect.any(String),
+        name: "r/buffer",
+        kind: "reddit",
+        state: "active",
+        getsAlerts: false,
+      },
+      message:
+        "Added r/buffer. Send posts there with create_route, and Ferry prepares a Reddit draft from each one for the owner to post.",
+    });
+    const destination = added.destination as { id: string };
+    expect(await data("add_subreddit", { subreddit: "Buffer" })).toEqual({
+      destination: added.destination,
+      message: "r/buffer was already added.",
+    });
+    expect(
+      await data("create_route", {
+        channelIds: ["dev-bluesky"],
+        destinationId: destination.id,
+      }),
+    ).toMatchObject({
+      route: { to: { destinationId: destination.id, kind: "reddit" } },
+    });
+  });
+
+  it("finds a subreddit the dashboard added", async () => {
+    expect(await data("add_subreddit", { subreddit: "sideproject" })).toEqual({
+      destination: {
+        id: "dev-reddit",
+        name: "r/SideProject",
+        kind: "reddit",
+        state: "active",
+        getsAlerts: false,
+      },
+      message: "r/SideProject was already added.",
+    });
+  });
+
+  it("refuses a name that isn't a subreddit, and unknown arguments", async () => {
+    for (const [args, message] of [
+      [{}, "subreddit must be a subreddit's name, like r/SideProject."],
+      [
+        { subreddit: "!!" },
+        "subreddit must be a subreddit's name, like r/SideProject.",
+      ],
+      [
+        { subreddit: "x".repeat(201) },
+        "subreddit must be a subreddit's name, like r/SideProject.",
+      ],
+      [
+        { subreddit: "r/buffer", nsfw: true },
+        "Unknown argument: nsfw. This tool takes subreddit.",
+      ],
+    ] as [Record<string, unknown>, string][])
+      expect(await run("add_subreddit", args), JSON.stringify(args)).toEqual({
+        ok: false,
+        message,
+      });
   });
 });
 
@@ -673,6 +843,7 @@ describe("what never leaves Ferry", () => {
   it("keeps them out of what the tools that change things say", async () => {
     latestPost();
     const calls: [string, Record<string, unknown>][] = [
+      ["add_subreddit", { subreddit: "r/buffer" }],
       ["pause_route", { routeId: "dev-route" }],
       ["resume_route", { routeId: "dev-route" }],
       [
@@ -706,6 +877,14 @@ describe("what never leaves Ferry", () => {
 
   it("keeps tokens, webhook and chat IDs and the account ID out of every tool", async () => {
     const secretList = secrets();
+    // The tools that need arguments get ones that work.
+    const needs: Record<string, Record<string, unknown>> = {
+      make_reddit_link: {
+        subreddit: "r/SideProject",
+        title: "A title",
+        body: "A body",
+      },
+    };
     for (const { definition } of server.tools) {
       const reply = await handleMcpPost(
         server,
@@ -713,7 +892,10 @@ describe("what never leaves Ferry", () => {
           jsonrpc: "2.0",
           id: 1,
           method: "tools/call",
-          params: { name: definition.name, arguments: {} },
+          params: {
+            name: definition.name,
+            arguments: needs[definition.name] ?? {},
+          },
         }),
         "2025-11-25",
         ctx,

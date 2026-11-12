@@ -266,7 +266,12 @@ describe("/mcp", () => {
     });
     expect(
       (await list.json()).result.tools.map((t: { name: string }) => t.name),
-    ).toEqual(["get_overview", "list_activity", "list_reddit_drafts"]);
+    ).toEqual([
+      "get_overview",
+      "list_activity",
+      "list_reddit_drafts",
+      "make_reddit_link",
+    ]);
 
     const call = await mcp(tokens.access_token, {
       jsonrpc: "2.0",
@@ -289,15 +294,17 @@ describe("/mcp", () => {
         ).json()
       ).result.tools.map((t: { name: string }) => t.name);
     const reader = await connect();
-    expect(await names(reader.tokens.access_token)).toHaveLength(3);
+    expect(await names(reader.tokens.access_token)).toHaveLength(4);
 
     const writer = await connect("ferry:read ferry:write");
     expect(await names(writer.tokens.access_token)).toEqual([
       "get_overview",
       "list_activity",
       "list_reddit_drafts",
+      "make_reddit_link",
       "pause_route",
       "resume_route",
+      "add_subreddit",
       "create_route",
       "retry_delivery",
       "send_latest_post",
