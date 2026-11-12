@@ -202,7 +202,7 @@ describe("buildDiscordMessages", () => {
     ]);
   });
 
-  it("joins thread texts and appends the link url when missing", () => {
+  it("numbers a thread's later posts and appends the link url when missing", () => {
     const msgs = buildDiscordMessages(
       mirror({
         text: "one",
@@ -216,7 +216,7 @@ describe("buildDiscordMessages", () => {
       }),
     );
     expect(msgs).toHaveLength(1);
-    expect(msgs[0]!.content).toBe("one\n\ntwo\n\nhttps://l.example/x");
+    expect(msgs[0]!.content).toBe("one\n\n-# 2/2\ntwo\n\nhttps://l.example/x");
     expect(msgs[0]!.username).toBe("Buffer");
     expect(msgs[0]!.avatar_url).toBe("https://a.example/av.png");
 
@@ -232,5 +232,12 @@ describe("buildDiscordMessages", () => {
       }),
     );
     expect(again[0]!.content).toBe("see https://l.example/x");
+  });
+
+  it("escapes a thread part that looks like Discord's own number line", () => {
+    const msgs = buildDiscordMessages(
+      mirror({ text: "one", threadTexts: ["-# not small"] }),
+    );
+    expect(msgs[0]!.content).toBe("one\n\n-# 2/2\n\\-# not small");
   });
 });

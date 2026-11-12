@@ -57,10 +57,12 @@ function NewTab() {
 
 /**
  * Connects a Telegram chat with a one-time code. "chat" shows the code and
- * links that add Ferry's bot to a channel or a group; "dm" shows one link
- * that opens a DM with the bot. While the panel is open it asks the server
- * whether Telegram has seen the code. The bot token and username stay on the
- * server: the links come back from the action.
+ * links that add Ferry's bot to a channel or a group; "dm" shows a link that
+ * opens a DM with the bot, then the code to send the bot by hand where the
+ * link can't open Telegram (no app, or an embedded browser). While the panel
+ * is open it asks the server whether Telegram has seen the code. The bot
+ * token stays on the server: the links and the bot's @name come back from
+ * the action.
  */
 export default function TelegramConnect({
   purpose,
@@ -96,7 +98,7 @@ export default function TelegramConnect({
           return;
         }
         setLink(result);
-        // A DM never shows a code: it waits on Start in Telegram.
+        // A DM waits on Start in Telegram, or on the code sent by hand.
         say(
           purpose === "dm" ? "Waiting for Telegram…" : "Waiting for the code…",
         );
@@ -185,6 +187,31 @@ export default function TelegramConnect({
     };
   }, [code]);
 
+  const codeField = link && (
+    <div className={ui.field}>
+      <label htmlFor={codeId} className={ui.label}>
+        Your code
+      </label>
+      <div className={styles.code}>
+        <input
+          ref={field}
+          id={codeId}
+          className={cx(ui.input, styles.value)}
+          value={link.code}
+          readOnly
+          aria-describedby={howId}
+        />
+        <button
+          type="button"
+          className={ui.button}
+          onClick={() => copy(link.code)}
+        >
+          Copy<span className="visually-hidden"> code</span>
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className={styles.connect}>
       <div>
@@ -207,28 +234,7 @@ export default function TelegramConnect({
         <div ref={panel} className={styles.panel}>
           {purpose === "chat" ? (
             <>
-              <div className={ui.field}>
-                <label htmlFor={codeId} className={ui.label}>
-                  Your code
-                </label>
-                <div className={styles.code}>
-                  <input
-                    ref={field}
-                    id={codeId}
-                    className={cx(ui.input, styles.value)}
-                    value={link.code}
-                    readOnly
-                    aria-describedby={howId}
-                  />
-                  <button
-                    type="button"
-                    className={ui.button}
-                    onClick={() => copy(link.code)}
-                  >
-                    Copy<span className="visually-hidden"> code</span>
-                  </button>
-                </div>
-              </div>
+              {codeField}
               <p id={howId} className={ui.hint}>
                 For a channel, post this code there once Ferry is an admin.
                 Ferry asks to delete messages only so it can remove the code
@@ -270,6 +276,11 @@ export default function TelegramConnect({
               </div>
               <p className={ui.hint}>
                 Press Start in Telegram, and Ferry connects.
+              </p>
+              {codeField}
+              <p id={howId} className={ui.hint}>
+                Telegram didn&apos;t open? In any Telegram app, find {link.bot},
+                press Start, then send this code.
               </p>
             </>
           )}

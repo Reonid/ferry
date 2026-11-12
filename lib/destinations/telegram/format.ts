@@ -4,6 +4,7 @@ import {
   TELEGRAM_TEXT_MAX,
 } from "../../constants";
 import { serviceLabel } from "../../mirror/services";
+import { threadParts } from "../../mirror/thread";
 import { splitText } from "../../text/split";
 import type { MirrorPost } from "../../types";
 
@@ -16,7 +17,11 @@ type Media = { type: "photo" | "video"; url: string };
 
 /** Text goes out literally: no parse_mode, so nothing needs escaping. */
 export function buildTelegramCalls(post: MirrorPost): TelegramCall[] {
-  let body = [post.text, ...post.threadTexts].filter(Boolean).join("\n\n");
+  // A thread's later posts each start with their number ("2/3"), so the
+  // thread doesn't read as one long post.
+  let body = threadParts(post)
+    .map(({ label, text }) => (label ? `${label}\n${text}` : text))
+    .join("\n\n");
   if (post.link && !post.text.includes(post.link.url)) {
     body = body ? `${body}\n\n${post.link.url}` : post.link.url;
   }

@@ -195,8 +195,17 @@ function CreateRoute({
             ) : (
               channels.map((c) => (
                 <label key={c.id} className={styles.check}>
-                  <input type="checkbox" name="channelIds" value={c.id} />
+                  <input
+                    // A new input when the lock changes, so a box ticked
+                    // before its channel locked isn't left ticked but unsent.
+                    key={c.isLocked ? "locked" : "open"}
+                    type="checkbox"
+                    name="channelIds"
+                    value={c.id}
+                    disabled={c.isLocked}
+                  />
                   {channelName(c)} on {serviceLabel(c.service)}
+                  {c.isLocked ? ", locked in Buffer" : ""}
                 </label>
               ))
             )}

@@ -364,17 +364,23 @@ test("the DM button shows the DM link", async ({ page }) => {
     }),
   ).toBeVisible();
   await expect(statusIn(settings)).toHaveText("Waiting for Telegram…");
-  // The DM link carries the code: nothing to copy, and no chat links.
-  await expect(
-    settings.getByRole("textbox", { name: "Your code" }),
-  ).toHaveCount(0);
+  const code = new URL(
+    (await link.getAttribute("href")) ?? "",
+  ).searchParams.get("start");
+  // The link's code is shown too, for a browser that can't open Telegram:
+  // sent to the bot by hand, it connects the same way. No chat links.
+  const field = settings.getByRole("textbox", { name: "Your code" });
+  await expect(field).toHaveValue(code ?? "");
+  await expect(field).not.toBeEditable();
+  await expect(field).toHaveAccessibleDescription(
+    "Telegram didn't open? In any Telegram app, find @FerryTestBot, press Start, then send this code.",
+  );
+  await tabTo(page, field);
+  await tabTo(page, settings.getByRole("button", { name: "Copy code" }));
   await expect(
     settings.getByRole("link", { name: /^Add Ferry to a/ }),
   ).toHaveCount(0);
 
-  const code = new URL(
-    (await link.getAttribute("href")) ?? "",
-  ).searchParams.get("start");
   await expect.poll(() => asked.at(-1), { timeout: 10_000 }).toBe(code);
 });
 

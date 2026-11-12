@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { HEARTBEAT_MAX_MS, OVERDUE_BASE_MS, OVERLAP_MS } from "../constants";
-import { account } from "../delivery/test-support";
+import { ACCOUNT_QUERY, CHANNELS_QUERY } from "../buffer/queries";
+import { account, route } from "../delivery/test-support";
 
 const MINUTE = 60_000;
 const SYNC_FAILING =
@@ -287,7 +288,8 @@ describe("runSync", () => {
     for (const [at, key] of [
       "chan-disconnected:ch",
       "chan-paused:ch",
-      "chan-paused:elsewhere",
+      "chan-locked:ch",
+      "post-error:elsewhere",
     ].entries())
       await store.raiseAlertOnce("acct", {
         key,
@@ -297,8 +299,186 @@ describe("runSync", () => {
       });
     await runSync("acct", deps);
     expect((await store.listAlerts("acct", 10)).map((a) => a.key)).toEqual([
-      "chan-paused:elsewhere",
+      "post-error:elsewhere",
     ]);
+  });
+
+  it("leaves a locked channel out of the query and alerts about it once", async () => {
+    const locked = channel({
+      id: "lk",
+      displayName: "My page",
+      service: "startPage",
+      isLocked: true,
+    });
+    const { deps, store, buffer } = makeSyncDeps({
+      channels: [channel(), locked],
+    });
+    await seed(store, { channels: [channel(), locked] });
+    await store.putRoute({
+      ...route("r1", "d1"),
+      activeSince: 0,
+      channelIds: ["ch", "lk"],
+    });
+    const first = await runSync("acct", deps);
+    const second = await runSync("acct", deps);
+    expect(buffer.mock.calls[0]?.[0].variables?.ch0).toEqual(["ch"]);
+    expect(first.alerts).toBe(1);
+    expect(second.alerts).toBe(0);
+    expect(
+      (await store.listAlerts("acct", 10)).map((a) => [a.key, a.message]),
+    ).toEqual([
+      [
+        "chan-locked:lk",
+        "My page on Start Page is locked in Buffer, so Ferry can't read its posts. Unlock it in Buffer, then use Refresh channels in Settings.",
+      ],
+    ]);
+  });
+
+  it("reads only the channel list, and stays scheduled, when every channel on its routes is locked", async () => {
+    const locked = channel({ isLocked: true });
+    const { deps, store, buffer } = makeSyncDeps({ channels: [locked] });
+    await seed(store, { channels: [locked] });
+    const report = await runSync("acct", deps);
+    expect(report.status).toBe("ok");
+    expect(report.nextRunAt).not.toBeNull();
+    expect(buffer.mock.calls[0]?.[0].query).not.toMatch(/\bposts\s*\(/);
+    expect(buffer.mock.calls[0]?.[0].variables).toEqual({ o0: "org" });
+    expect((await store.listAlerts("acct", 10)).map((a) => a.key)).toEqual([
+      "chan-locked:ch",
+    ]);
+  });
+
+  it("trusts Buffer's answer over a lock it remembers, so an unlocked channel gets no alert", async () => {
+    const { deps, store, buffer } = makeSyncDeps({
+      channels: [channel(), channel({ id: "lk" })],
+    });
+    await seed(store, {
+      channels: [channel(), channel({ id: "lk", isLocked: true })],
+    });
+    await store.putRoute({
+      ...route("r1", "d1"),
+      activeSince: 0,
+      channelIds: ["ch", "lk"],
+    });
+    const first = await runSync("acct", deps);
+    expect(buffer.mock.calls[0]?.[0].variables?.ch0).toEqual(["ch"]);
+    expect(first.alerts).toBe(0);
+    await runSync("acct", deps);
+    expect(buffer.mock.calls[1]?.[0].variables?.ch0).toEqual(["ch", "lk"]);
+  });
+
+  it("clears a channel's alerts once no running route uses it", async () => {
+    const { deps, store } = makeSyncDeps({
+      channels: [channel(), channel({ id: "old", isLocked: true })],
+    });
+    await seed(store);
+    await store.raiseAlertOnce("acct", {
+      key: "chan-locked:old",
+      message: "x",
+      supportUrl: null,
+      at: 1,
+    });
+    await runSync("acct", deps);
+    expect(await store.listAlerts("acct", 10)).toEqual([]);
+  });
+
+  it("doesn't re-read channels for other Buffer errors", async () => {
+    const { deps, store, buffer } = makeSyncDeps(
+      {},
+      new BufferError("Something else broke.", { kind: "api", status: 500 }),
+    );
+    await seed(store);
+    await runSync("acct", deps);
+    expect(buffer).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads the channel lists again on every refusal, in one call", async () => {
+    const { deps, store, buffer } = makeSyncDeps(
+      {},
+      new BufferError("Actor can not access the specified channels.", {
+        kind: "api",
+        status: 200,
+      }),
+    );
+    await seed(store);
+    await runSync("acct", deps);
+    expect(buffer).toHaveBeenCalledTimes(2);
+    expect(buffer.mock.calls[1]?.[0].variables).toEqual({ o0: "org" });
+    expect((await store.getSyncState("acct")).failureCount).toBe(1);
+    buffer.mockClear();
+    await store.putSyncState("acct", {
+      ...(await store.getSyncState("acct")),
+      retryAt: null,
+    });
+    await runSync("acct", deps);
+    expect(buffer).toHaveBeenCalledTimes(2);
+  });
+
+  it("clears channel alerts once no route is running", async () => {
+    const { deps, store } = makeSyncDeps();
+    await seed(store);
+    await store.putRoute({
+      ...route("r1", "d1"),
+      activeSince: 0,
+      paused: true,
+    });
+    await store.raiseAlertOnce("acct", {
+      key: "chan-locked:ch",
+      message: "x",
+      supportUrl: null,
+      at: 1,
+    });
+    expect((await runSync("acct", deps)).status).toBe("no_routes");
+    expect(await store.listAlerts("acct", 10)).toEqual([]);
+  });
+
+  it("doesn't clear alerts an idle channel doesn't have", async () => {
+    const { deps, store } = makeSyncDeps({
+      channels: [channel(), channel({ id: "a" }), channel({ id: "b" })],
+    });
+    await seed(store);
+    const clear = vi.spyOn(store, "clearAlertKey");
+    await runSync("acct", deps);
+    expect(
+      clear.mock.calls
+        .map((c) => c[1])
+        .filter((key) => key.startsWith("chan-") && !key.endsWith(":ch")),
+    ).toEqual([]);
+  });
+
+  it("re-reads channels when Buffer refuses one, so the next check leaves it out", async () => {
+    const { deps, store, buffer } = makeSyncDeps();
+    await seed(store);
+    buffer.mockImplementation(async ({ query, variables }) => {
+      if (query === ACCOUNT_QUERY)
+        return {
+          data: { account: { id: "acct", organizations: [{ id: "org" }] } },
+          rateLimit: null,
+        };
+      if (query === CHANNELS_QUERY)
+        return {
+          data: { channels: [channel({ isLocked: true })] },
+          rateLimit: null,
+        };
+      if (variables.ch0 !== undefined)
+        throw new BufferError("Actor can not access the specified channels.", {
+          kind: "api",
+          status: 200,
+        });
+      return { data: { c0: [channel({ isLocked: true })] }, rateLimit: null };
+    });
+    const failed = await runSync("acct", deps);
+    expect(failed.status).toBe("error");
+    expect((await store.getChannels("acct")).map((c) => c.isLocked)).toEqual([
+      true,
+    ]);
+    buffer.mockClear();
+    await store.putSyncState("acct", {
+      ...(await store.getSyncState("acct")),
+      retryAt: null,
+    });
+    expect((await runSync("acct", deps)).status).toBe("ok");
+    expect(buffer.mock.calls[0]?.[0].variables).toEqual({ o0: "org" });
   });
 
   it("alerts for an error post with Buffer's help link", async () => {

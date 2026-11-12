@@ -43,13 +43,22 @@ export async function GET(): Promise<NextResponse> {
   });
 
   const cached = await store.getChannels(account.accountId);
+  // Buffer refuses a whole posts query that names a locked channel.
+  const readable = cached.filter((c) => !c.isLocked);
   const byOrg = new Map<string, string[]>();
   for (const c of cached)
-    byOrg.set(c.organizationId, [...(byOrg.get(c.organizationId) ?? []), c.id]);
+    byOrg.set(c.organizationId, [
+      ...(byOrg.get(c.organizationId) ?? []),
+      ...(c.isLocked ? [] : [c.id]),
+    ]);
   const orgs = [...byOrg].map(([organizationId, channelIds]) => ({
     organizationId,
     channelIds,
   }));
+  if (orgs.length === 0)
+    return NextResponse.json({
+      error: "No channels yet. Refresh them in Settings.",
+    });
 
   const headers: { rateLimit: string | null; policy: string | null } = {
     rateLimit: null,
@@ -57,7 +66,7 @@ export async function GET(): Promise<NextResponse> {
   };
   const { data } = await bufferRequest<unknown>({
     accessToken,
-    query: buildSyncQuery(orgs.length),
+    query: buildSyncQuery(orgs),
     variables: syncVariables({
       orgs,
       since: now - 30 * DAY,
@@ -92,5 +101,6 @@ export async function GET(): Promise<NextResponse> {
       host: source ? hostOf(source) : null,
     },
     organizationTagLimits: summarizeOrgLimits(limits.data),
+    lockedChannelsSkipped: cached.length - readable.length,
   });
 }

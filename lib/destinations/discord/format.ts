@@ -4,6 +4,7 @@ import {
   DISCORD_USERNAME_MAX,
 } from "../../constants";
 import { serviceLabel } from "../../mirror/services";
+import { threadParts } from "../../mirror/thread";
 import { splitText, URL_SPAN } from "../../text/split";
 import type { MirrorPost } from "../../types";
 
@@ -82,8 +83,14 @@ const EXT: Record<string, string> = {
 };
 
 export function buildDiscordMessages(post: MirrorPost): DiscordMessage[] {
-  let body = [post.text, ...post.threadTexts].filter(Boolean).join("\n\n");
-  body = escapeDiscordMarkdown(body);
+  // A thread's later posts each get a small "2/3" line (Discord subtext),
+  // so the thread doesn't read as one long post.
+  let body = threadParts(post)
+    .map(({ label, text }) => {
+      const escaped = escapeDiscordMarkdown(text);
+      return label ? `-# ${label}\n${escaped}` : escaped;
+    })
+    .join("\n\n");
   if (post.link && !post.text.includes(post.link.url)) {
     body = body ? `${body}\n\n${post.link.url}` : post.link.url;
   }

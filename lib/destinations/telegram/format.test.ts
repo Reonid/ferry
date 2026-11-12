@@ -45,7 +45,7 @@ describe("buildTelegramCalls", () => {
       {
         method: "sendMessage",
         params: {
-          text: "*not bold* _x_ <b>y</b>\n\ntwo\n\nhttps://l.example",
+          text: "*not bold* _x_ <b>y</b>\n\n2/2\ntwo\n\nhttps://l.example",
         },
       },
     ]);

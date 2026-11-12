@@ -66,7 +66,12 @@ export async function startTelegramLink(args: {
   purpose: "chat" | "dm";
   now: number;
   botUsername: string;
-}): Promise<{ code: string; links: ReturnType<typeof linkUrls> }> {
+}): Promise<{
+  code: string;
+  /** The bot's @name, to send the code to by hand when a link can't open Telegram. */
+  bot: string;
+  links: ReturnType<typeof linkUrls>;
+}> {
   const code = newLinkCode();
   await args.store.putTelegramLink(code, {
     accountId: args.accountId,
@@ -74,7 +79,11 @@ export async function startTelegramLink(args: {
     createdAt: args.now,
     destinationId: null,
   });
-  return { code, links: linkUrls(args.botUsername, code) };
+  return {
+    code,
+    bot: `@${args.botUsername}`,
+    links: linkUrls(args.botUsername, code),
+  };
 }
 
 /** What's left of a code's 15 minutes, so using it doesn't keep it longer. */

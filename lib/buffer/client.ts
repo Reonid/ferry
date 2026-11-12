@@ -154,3 +154,15 @@ export async function bufferRequest<T>(args: {
     rateLimit: parseRateLimit(response.headers.get("ratelimit"), now),
   };
 }
+
+/**
+ * Buffer's answer when a posts query names a channel it won't read, such
+ * as a locked one. It refuses the whole query, not just that channel.
+ */
+export function refusesChannels(err: unknown): boolean {
+  return (
+    err instanceof BufferError &&
+    err.kind === "api" &&
+    /can ?not access the specified channels/i.test(err.message)
+  );
+}
