@@ -10,7 +10,12 @@ import {
   route,
   telegramDest,
 } from "./test-support";
-import { RETRY_DELAYS_MS, RETRY_JOB_TTL_S, WRITE_AHEAD_MS } from "../constants";
+import {
+  CLAIM_GROUP_TTL_S,
+  RETRY_DELAYS_MS,
+  RETRY_JOB_TTL_S,
+  WRITE_AHEAD_MS,
+} from "../constants";
 import type { DeliveryOutcome } from "../types";
 
 const fail = (over: Partial<Extract<DeliveryOutcome, { ok: false }>> = {}) =>
@@ -64,6 +69,45 @@ describe("deliverToDestination", () => {
     expect(calls).toHaveLength(1);
   });
 
+  it("skips a copy with the same text from another content item, for a day", async () => {
+    const { run, calls, store } = await setup();
+    const ttls = new Map<string, number>();
+    const orig = store.claim.bind(store);
+    store.claim = async (k, ttl) => {
+      ttls.set(k, ttl);
+      return orig(k, ttl);
+    };
+    // Buffer's API makes each channel's post on its own, so the X and the
+    // Bluesky copy of one announcement can carry different content items.
+    expect(await run(mirror({ groupKey: "ci:x", postIds: ["X1"] }))).toBe(
+      "delivered",
+    );
+    expect(await run(mirror({ groupKey: "ci:bsky", postIds: ["B1"] }))).toBe(
+      "skipped",
+    );
+    // Other words, or the same words with another first image, cross.
+    expect(
+      await run(
+        mirror({ groupKey: "ci:o", postIds: ["O1"], text: "Something else" }),
+      ),
+    ).toBe("delivered");
+    expect(
+      await run(
+        mirror({
+          groupKey: "ci:p",
+          postIds: ["P1"],
+          images: [
+            { url: "https://img.test/2.png", alt: "", mimeType: "image/png" },
+          ],
+        }),
+      ),
+    ).toBe("delivered");
+    expect(calls).toHaveLength(3);
+    const textClaims = [...ttls].filter(([k]) => k.startsWith("d1:text:"));
+    expect(textClaims.length).toBeGreaterThan(0);
+    for (const [, ttl] of textClaims) expect(ttl).toBe(CLAIM_GROUP_TTL_S);
+  });
+
   it("skips when a post was already claimed by another group", async () => {
     const { run, calls } = await setup();
     await run(mirror({ groupKey: "g1", postIds: ["A"] }));
@@ -73,7 +117,7 @@ describe("deliverToDestination", () => {
     expect(calls).toHaveLength(1);
   });
 
-  it("claims the group key before the post keys", async () => {
+  it("claims the group key, then the text, before the post keys", async () => {
     const { run, store } = await setup();
     const order: string[] = [];
     const orig = store.claim.bind(store);
@@ -82,7 +126,12 @@ describe("deliverToDestination", () => {
       return orig(k, ttl);
     };
     await run(mirror({ groupKey: "g9", postIds: ["a", "b"] }));
-    expect(order).toEqual(["d1:group:g9", "d1:post:a", "d1:post:b"]);
+    expect(order).toEqual([
+      "d1:group:g9",
+      expect.stringMatching(/^d1:text:[0-9a-f]{64}$/),
+      "d1:post:a",
+      "d1:post:b",
+    ]);
   });
 
   it("schedules retries 1, 5 and 30 minutes then 3 hours, then fails", async () => {

@@ -19,6 +19,7 @@ import { buildTelegramDraftNotice } from "../destinations/telegram/notice";
 import type { sendTelegramMessages } from "../destinations/telegram/send";
 import { buildRedditDraft } from "../destinations/reddit/draft";
 import { buildDraftNotice } from "../destinations/reddit/notice";
+import { mirrorFingerprint } from "../routing/group";
 import type { TelegramConfig } from "../env";
 import type { Store } from "../store/store";
 import type {
@@ -176,6 +177,11 @@ export async function deliverToDestination(args: {
     );
     if (!groupOk) return "skipped";
     claimed.push(`${destination.id}:group:${mirror.groupKey}`);
+    // The same words from another content item, as when Buffer's API posts
+    // to X and Bluesky one call at a time: once per destination for a day.
+    const textKey = `${destination.id}:text:${mirrorFingerprint(mirror)}`;
+    if (!(await deps.store.claim(textKey, CLAIM_GROUP_TTL_S))) return "skipped";
+    claimed.push(textKey);
     for (const postId of mirror.postIds) {
       const key = `${destination.id}:post:${postId}`;
       const ok = await deps.store.claim(key, CLAIM_POST_TTL_S);
