@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ACCOUNT_QUERY } from "../buffer/queries";
+import { ACCOUNT_QUERY, CHANNELS_QUERY } from "../buffer/queries";
 import { SEND_LATEST_COOLDOWN_MS } from "../constants";
 import { account, discordDest, redditDest } from "../delivery/test-support";
 import { runSync } from "../sync/runner";
@@ -73,6 +73,25 @@ describe("validateRouteInput", () => {
     expect(validateRouteInput({ ...valid, channelIds: ["nope"] })).toEqual({
       ok: false,
       error: "Pick channels from your Buffer account.",
+    });
+  });
+  it("refuses a channel that's locked in Buffer", () => {
+    const locked = channel({
+      id: "lk",
+      displayName: "My page",
+      service: "startPage",
+      isLocked: true,
+    });
+    expect(
+      validateRouteInput({
+        ...valid,
+        channelIds: ["ch", "lk"],
+        channels: [...channels, locked],
+      }),
+    ).toEqual({
+      ok: false,
+      error:
+        "My page on Start Page is locked in Buffer, so Ferry can't read its posts. Pick another channel.",
     });
   });
   it("rejects unknown destinations", () => {
@@ -564,6 +583,104 @@ describe("sendLatestPost", () => {
     expect(r).toEqual({
       ok: false,
       error: "No sent posts on these channels yet.",
+    });
+  });
+
+  it("leaves out a channel locked since the route was made", async () => {
+    const ctx = makeSyncDeps();
+    await ctx.store.putAccount(account());
+    await ctx.store.putChannels("acct", [channel(), channel({ id: "lk" })]);
+    await ctx.store.putDestination(discordDest("d1"));
+    await createRoute(
+      ctx.store,
+      "acct",
+      { channelIds: ["ch", "lk"], destinationId: "d1", tagNames: [] },
+      NOW,
+    );
+    const [route] = await ctx.store.listRoutes("acct");
+    await ctx.store.putChannels("acct", [
+      channel(),
+      channel({ id: "lk", isLocked: true }),
+    ]);
+    ctx.buffer.mockResolvedValue({
+      data: { posts: { edges: [{ node: rawPost() }] } },
+      rateLimit: null,
+    });
+    await sendLatestPost(ctx.deps, "acct", route!.id);
+    expect(ctx.buffer.mock.calls[0]![0].variables).toEqual({
+      org: "org",
+      ch: ["ch"],
+    });
+  });
+
+  it("says so, without calling Buffer, when every channel on the route is locked", async () => {
+    const { deps, store, routeId, buffer } = await seedSend();
+    await store.putChannels("acct", [channel({ isLocked: true })]);
+    const r = await sendLatestPost(deps, "acct", routeId);
+    expect(r).toEqual({
+      ok: false,
+      error:
+        "This route's channels are locked in Buffer, so Ferry can't read their posts.",
+    });
+    expect(buffer).not.toHaveBeenCalled();
+  });
+
+  it("re-reads the channels when Buffer refuses one, and says to try again", async () => {
+    const { deps, store, routeId, buffer } = await seedSend();
+    buffer.mockImplementation(async ({ query }) => {
+      if (query === ACCOUNT_QUERY)
+        return {
+          data: { account: { id: "acct", organizations: [{ id: "org" }] } },
+          rateLimit: null,
+        };
+      if (query === CHANNELS_QUERY)
+        return {
+          data: { channels: [channel({ isLocked: true })] },
+          rateLimit: null,
+        };
+      throw new BufferError("Actor can not access the specified channels.", {
+        kind: "api",
+        status: 200,
+      });
+    });
+    const r = await sendLatestPost(deps, "acct", routeId);
+    expect(r).toEqual({
+      ok: false,
+      error:
+        "A channel on this route is locked in Buffer now. Ferry has updated your channels, so try again.",
+    });
+    expect((await store.getChannels("acct"))[0]?.isLocked).toBe(true);
+    // The retry it asks for isn't held back by the cooldown.
+    expect(await sendLatestPost(deps, "acct", routeId)).toEqual({
+      ok: false,
+      error:
+        "This route's channels are locked in Buffer, so Ferry can't read their posts.",
+    });
+  });
+
+  it("keeps the cooldown when Buffer refuses channels it doesn't list as locked", async () => {
+    const { deps, routeId, buffer } = await seedSend();
+    buffer.mockImplementation(async ({ query }) => {
+      if (query === ACCOUNT_QUERY)
+        return {
+          data: { account: { id: "acct", organizations: [{ id: "org" }] } },
+          rateLimit: null,
+        };
+      if (query === CHANNELS_QUERY)
+        return { data: { channels: [channel()] }, rateLimit: null };
+      throw new BufferError("Actor can not access the specified channels.", {
+        kind: "api",
+        status: 200,
+      });
+    });
+    expect(await sendLatestPost(deps, "acct", routeId)).toEqual({
+      ok: false,
+      error:
+        "Buffer won't read this route's channels, though none shows as locked. Check them in Buffer.",
+    });
+    expect(await sendLatestPost(deps, "acct", routeId)).toEqual({
+      ok: false,
+      error: "Wait a few seconds before sending another test.",
     });
   });
 

@@ -1,9 +1,10 @@
 import { raiseAlert } from "../alerts";
-import { BufferError } from "../buffer/client";
+import { BufferError, refusesChannels } from "../buffer/client";
 import { mapSyncData } from "../buffer/map";
 import { buildSyncQuery, syncVariables } from "../buffer/queries";
 import { TokenBusyError } from "../buffer/tokens";
 import {
+  ALERTS_KEPT,
   BACKOFF_BASE_MS,
   BACKOFF_MAX_MS,
   HEARTBEAT_MAX_MS,
@@ -60,6 +61,12 @@ export function backoffMs(failures: number): number {
   return Math.min(BACKOFF_BASE_MS * 2 ** failures, BACKOFF_MAX_MS);
 }
 
+/** The channel in a channel alert's key, such as "chan-locked:<id>". */
+const CHANNEL_ALERT = /^chan-(?:disconnected|paused|locked):(.+)$/;
+
+const lockedMessage = (label: string): string =>
+  `${label} is locked in Buffer, so Ferry can't read its posts. Unlock it in Buffer, then use Refresh channels in Settings.`;
+
 export function channelLabel(
   channels: Channel[],
   channelId: string,
@@ -100,6 +107,17 @@ export async function runSync(
     });
     report.nextRunAt = at;
   }
+  /**
+   * Clears the alerts of channels no running route uses: they have nothing
+   * left to warn about. One read of the alert list, then only what's there.
+   */
+  async function clearIdleChannelAlerts(onRoutes: Set<string>): Promise<void> {
+    for (const { key } of await store.listAlerts(accountId, ALERTS_KEPT)) {
+      const channelId = CHANNEL_ALERT.exec(key)?.[1];
+      if (channelId !== undefined && !onRoutes.has(channelId))
+        await store.clearAlertKey(accountId, key);
+    }
+  }
   async function alert(
     account: Account,
     key: string,
@@ -129,23 +147,30 @@ export async function runSync(
       (r) => !r.paused && destById.get(r.destinationId)?.status === "active",
     );
     const cached = await store.getChannels(accountId);
-    const sourceIds = new Set(routes.flatMap((r) => r.channelIds));
+    const onRoutes = new Set(routes.flatMap((r) => r.channelIds));
+    // Buffer refuses a whole posts query that names a locked channel, so a
+    // locked one stays out of it. Its organization still has its channel
+    // list read, so the alert and an unlock both come from Buffer's answer.
+    const locked = new Set(cached.filter((c) => c.isLocked).map((c) => c.id));
     const orgOf = (channelId: string): string | undefined =>
       cached.find((c) => c.id === channelId)?.organizationId ??
       (account.organizationIds.length === 1
         ? account.organizationIds[0]
         : undefined);
     const byOrg = new Map<string, string[]>();
-    for (const id of sourceIds) {
+    for (const id of onRoutes) {
       const org = orgOf(id);
       if (org === undefined) continue;
-      byOrg.set(org, [...(byOrg.get(org) ?? []), id]);
+      const ids = byOrg.get(org) ?? [];
+      if (!locked.has(id)) ids.push(id);
+      byOrg.set(org, ids);
     }
     const orgs = [...byOrg].map(([organizationId, channelIds]) => ({
       organizationId,
       channelIds,
     }));
     if (orgs.length === 0) {
+      await clearIdleChannelAlerts(onRoutes);
       await store.unscheduleSync(accountId);
       const state = await store.getSyncState(accountId);
       await store.putSyncState(accountId, { ...state, nextRunAt: null });
@@ -159,12 +184,38 @@ export async function runSync(
         : Math.min(...routes.map((r) => r.activeSince));
     const until = start + LOOKAHEAD_MS;
 
+    // Reads only the channel lists, in one call. After Buffer refuses a
+    // channel, this is how the next check learns to leave it out.
+    const rereadChannelLists = async (): Promise<void> => {
+      const lists = orgs.map((o) => ({
+        organizationId: o.organizationId,
+        channelIds: [] as string[],
+      }));
+      try {
+        const accessToken = await deps.getAccessToken(accountId);
+        await store.countApiCall(accountId, dayKey(start));
+        const { data, rateLimit } = await deps.buffer({
+          accessToken,
+          query: buildSyncQuery(lists),
+          variables: syncVariables({ orgs: lists, since, until }),
+        });
+        if (rateLimit) await store.putRateLimit(rateLimit);
+        const queried = new Set(lists.map((o) => o.organizationId));
+        await store.putChannels(accountId, [
+          ...cached.filter((c) => !queried.has(c.organizationId)),
+          ...mapSyncData(data, lists.length).channels,
+        ]);
+      } catch {
+        // The next check refuses and tries again.
+      }
+    };
+
     try {
       const accessToken = await deps.getAccessToken(accountId);
       await store.countApiCall(accountId, dayKey(start));
       const { data, rateLimit } = await deps.buffer({
         accessToken,
-        query: buildSyncQuery(orgs.length),
+        query: buildSyncQuery(orgs),
         variables: syncVariables({ orgs, since, until }),
       });
       if (rateLimit) await store.putRateLimit(rateLimit);
@@ -183,7 +234,7 @@ export async function runSync(
         mapped.posts,
         mapped.channels,
         routes,
-        sourceIds,
+        onRoutes,
         channels,
       );
 
@@ -244,6 +295,10 @@ export async function runSync(
             : backoffMs(failures);
       const at = start + wait;
       await schedule(at, { retryAt: at, failureCount: failures + 1 });
+      // A channel locked since the last check makes Buffer refuse the whole
+      // query. Read the channel lists after the retry is saved, so a slow
+      // Buffer can't lose it.
+      if (refusesChannels(err)) await rereadChannelLists();
       if (failures + 1 >= SYNC_FAILURE_ALERT_AT)
         await alert(account, SYNC_FAILING_KEY, SYNC_FAILING_MESSAGE, null);
       if (rateLimited) return { ...report, status: "rate_limited" };
@@ -306,11 +361,13 @@ export async function runSync(
           post.error?.supportUrl ?? null,
         );
       }
+      await clearIdleChannelAlerts(source);
       for (const channel of fresh) {
         if (!source.has(channel.id)) continue;
         const label = channelLabel(channels, channel.id, channel.service);
         const dKey = `chan-disconnected:${channel.id}`;
         const pKey = `chan-paused:${channel.id}`;
+        const lKey = `chan-locked:${channel.id}`;
         if (channel.isDisconnected)
           await alert(
             account,
@@ -327,6 +384,9 @@ export async function runSync(
             null,
           );
         else await store.clearAlertKey(accountId, pKey);
+        if (channel.isLocked)
+          await alert(account, lKey, lockedMessage(label), null);
+        else await store.clearAlertKey(accountId, lKey);
       }
     }
   } finally {

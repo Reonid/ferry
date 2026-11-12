@@ -1,4 +1,4 @@
-import { BufferError } from "../buffer/client";
+import { BufferError, refusesChannels } from "../buffer/client";
 import { mapAccount, mapChannel, mapPost } from "../buffer/map";
 import {
   ACCOUNT_QUERY,
@@ -11,6 +11,7 @@ import { newId } from "../crypto";
 import { deliverToDestination } from "../delivery/deliver";
 import { retryFailedJob } from "../delivery/retries";
 import { normalizeSubreddit } from "../destinations/reddit/subreddit";
+import { serviceLabel } from "../mirror/services";
 import { toMirrorPost } from "../mirror/to-mirror";
 import { routeTakesTags } from "../routing/match";
 import type { Store } from "../store/store";
@@ -35,6 +36,12 @@ const MAX_TAGS = 10;
 const MAX_LABEL = 60;
 const RECONNECT = "Reconnect this destination first.";
 const REFRESH_CHANNELS = "Refresh your channels and try again.";
+const LOCKED_ROUTE =
+  "This route's channels are locked in Buffer, so Ferry can't read their posts.";
+const LOCKED_NOW =
+  "A channel on this route is locked in Buffer now. Ferry has updated your channels, so try again.";
+const REFUSED =
+  "Buffer won't read this route's channels, though none shows as locked. Check them in Buffer.";
 const SIGN_IN_AGAIN = "Buffer disconnected Ferry. Sign in again.";
 const RATE_LIMITED =
   "Ferry is waiting on Buffer's rate limit. Try again in a few minutes.";
@@ -51,6 +58,15 @@ export function validateRouteInput(args: {
   const known = new Set(args.channels.map((c) => c.id));
   if (!args.channelIds.every((id) => known.has(id)))
     return { ok: false, error: "Pick channels from your Buffer account." };
+  // Buffer refuses a whole posts query that names a locked channel.
+  const locked = args.channels.find(
+    (c) => c.isLocked && args.channelIds.includes(c.id),
+  );
+  if (locked)
+    return {
+      ok: false,
+      error: `${locked.displayName ?? locked.name} on ${serviceLabel(locked.service)} is locked in Buffer, so Ferry can't read its posts. Pick another channel.`,
+    };
   const destination = args.destinations.find(
     (d) => d.id === args.destinationId,
   );
@@ -344,16 +360,20 @@ export async function sendLatestPost(
     return fail("Wait a few seconds before sending another test.");
 
   const channels = await store.getChannels(accountId);
-  const first = channels.find((c) => route.channelIds.includes(c.id));
+  // Buffer refuses a whole posts query that names a locked channel.
+  const onRoute = channels.filter((c) => route.channelIds.includes(c.id));
+  const readable = onRoute.filter((c) => !c.isLocked);
+  if (onRoute.length > 0 && readable.length === 0) return fail(LOCKED_ROUTE);
   const org =
-    first?.organizationId ??
+    readable[0]?.organizationId ??
     (account.organizationIds.length === 1
       ? account.organizationIds[0]
       : undefined);
   if (org === undefined) return fail(REFRESH_CHANNELS);
-  const channelIds = route.channelIds.filter(
-    (id) => channels.find((c) => c.id === id)?.organizationId === org,
-  );
+  const channelIds = route.channelIds.filter((id) => {
+    const c = channels.find((x) => x.id === id);
+    return c?.organizationId === org && !c.isLocked;
+  });
   // An empty channel filter would ask Buffer for every channel's posts.
   if (channelIds.length === 0) return fail(REFRESH_CHANNELS);
 
@@ -373,6 +393,21 @@ export async function sendLatestPost(
       ? edges.map((e) => (e as { node?: unknown } | undefined)?.node)
       : [];
   } catch (err) {
+    // A channel locked since Ferry last read them: read them again, so the
+    // next try leaves it out.
+    if (refusesChannels(err)) {
+      const refreshed = await refreshChannels(deps, accountId);
+      if (!refreshed.ok) return refreshed;
+      const nowLocked = (await store.getChannels(accountId)).some(
+        (c) => c.isLocked && route.channelIds.includes(c.id),
+      );
+      // Refused for a reason Ferry can't see: the cooldown stays, so nobody,
+      // an AI app included, retries in a loop.
+      if (!nowLocked) return fail(REFUSED);
+      // So the try again this asks for isn't met by the cooldown.
+      await store.releaseClaims([`send-latest:${accountId}`]);
+      return fail(LOCKED_NOW);
+    }
     const known = await buffersFailure(store, account, err);
     if (known) return known;
     throw err;

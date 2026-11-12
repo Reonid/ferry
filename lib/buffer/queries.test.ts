@@ -21,8 +21,20 @@ describe("query guard against Buffer's schema", () => {
     ["CHANNELS_QUERY", CHANNELS_QUERY],
     ["LATEST_SENT_QUERY", LATEST_SENT_QUERY],
     ["ORG_LIMITS_QUERY", ORG_LIMITS_QUERY],
-    ["buildSyncQuery(1)", buildSyncQuery(1)],
-    ["buildSyncQuery(3)", buildSyncQuery(3)],
+    ["sync, one org", buildSyncQuery([{ channelIds: ["c1"] }])],
+    [
+      "sync, three orgs",
+      buildSyncQuery([
+        { channelIds: ["c1"] },
+        { channelIds: ["c2", "c3"] },
+        { channelIds: ["c4"] },
+      ]),
+    ],
+    ["sync, channel list only", buildSyncQuery([{ channelIds: [] }])],
+    [
+      "sync, one org of each",
+      buildSyncQuery([{ channelIds: [] }, { channelIds: ["c1"] }]),
+    ],
   ];
   it.each(docs)("%s validates", (_name, doc) => {
     expect(validate(schema, parse(doc))).toEqual([]);
@@ -34,7 +46,7 @@ describe("query guard against Buffer's schema", () => {
 });
 
 describe("syncVariables", () => {
-  it("converts epoch ms to ISO and numbers the orgs", () => {
+  it("converts epoch ms to ISO, numbers the orgs, and gives an org with nothing to read no channel filter", () => {
     const vars = syncVariables({
       orgs: [
         { organizationId: "o-a", channelIds: ["c1"] },
@@ -49,7 +61,14 @@ describe("syncVariables", () => {
       o0: "o-a",
       ch0: ["c1"],
       o1: "o-b",
-      ch1: [],
+    });
+  });
+
+  it("asks only for channel lists when no channel can be read", () => {
+    const orgs = [{ organizationId: "o-a", channelIds: [] }];
+    expect(buildSyncQuery(orgs)).not.toMatch(/\bposts\s*\(/);
+    expect(syncVariables({ orgs, since: 0, until: 0 })).toEqual({
+      o0: "o-a",
     });
   });
 });

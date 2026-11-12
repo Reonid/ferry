@@ -47,13 +47,24 @@ export const LATEST_SENT_QUERY = `query LatestSent($org: OrganizationId!, $ch: [
 }
 ${POST_FIELDS}`;
 
-/** One query for every organization: recent (r), upcoming (u) and channels (c) per org. */
-export function buildSyncQuery(orgCount: number): string {
-  const vars: string[] = ["$since: DateTime!", "$until: DateTime!"];
+/**
+ * One query for every organization: recent (r), upcoming (u) and channels
+ * (c) per org. An org with no channels to read gets only its channel list:
+ * an empty filter would ask for every channel, locked ones included.
+ */
+export function buildSyncQuery(
+  orgs: readonly { channelIds: readonly string[] }[],
+): string {
+  const reads = orgs.some((o) => o.channelIds.length > 0);
+  const vars: string[] = reads
+    ? ["$since: DateTime!", "$until: DateTime!"]
+    : [];
   const selections: string[] = [];
-  for (let i = 0; i < orgCount; i++) {
-    vars.push(`$o${i}: OrganizationId!`, `$ch${i}: [ChannelId!]`);
-    selections.push(`  r${i}: posts(
+  orgs.forEach((org, i) => {
+    vars.push(`$o${i}: OrganizationId!`);
+    if (org.channelIds.length > 0) {
+      vars.push(`$ch${i}: [ChannelId!]`);
+      selections.push(`  r${i}: posts(
     first: 100
     input: {
       organizationId: $o${i}
@@ -72,14 +83,16 @@ export function buildSyncQuery(orgCount: number): string {
     }
   ) {
     edges { node { id channelId dueAt status } }
-  }
-  c${i}: channels(input: { organizationId: $o${i} }) { ...ChannelFields }`);
-  }
+  }`);
+    }
+    selections.push(
+      `  c${i}: channels(input: { organizationId: $o${i} }) { ...ChannelFields }`,
+    );
+  });
   return `query Sync(${vars.join(", ")}) {
 ${selections.join("\n")}
 }
-${POST_FIELDS}
-${CHANNEL_FIELDS}`;
+${reads ? `${POST_FIELDS}\n` : ""}${CHANNEL_FIELDS}`;
 }
 
 export function syncVariables(args: {
@@ -87,13 +100,14 @@ export function syncVariables(args: {
   since: number;
   until: number;
 }): Record<string, unknown> {
-  const vars: Record<string, unknown> = {
-    since: new Date(args.since).toISOString(),
-    until: new Date(args.until).toISOString(),
-  };
+  const vars: Record<string, unknown> = {};
+  if (args.orgs.some((o) => o.channelIds.length > 0)) {
+    vars.since = new Date(args.since).toISOString();
+    vars.until = new Date(args.until).toISOString();
+  }
   args.orgs.forEach((org, i) => {
     vars[`o${i}`] = org.organizationId;
-    vars[`ch${i}`] = org.channelIds;
+    if (org.channelIds.length > 0) vars[`ch${i}`] = org.channelIds;
   });
   return vars;
 }
