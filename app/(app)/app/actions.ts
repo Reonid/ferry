@@ -200,6 +200,7 @@ export async function startTelegramLinkAction(purpose: "chat" | "dm"): Promise<
   | {
       ok: true;
       code: string;
+      bot: string;
       links: Awaited<ReturnType<typeof startTelegramLink>>["links"];
     }
   | { ok: false; error: string }

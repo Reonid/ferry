@@ -212,6 +212,37 @@ describe("processTelegramUpdates", () => {
     });
   });
 
+  it("names the bot, so the code can be sent to it by hand", async () => {
+    const store = await setup();
+    const started = await startTelegramLink({
+      store,
+      accountId: "acct",
+      purpose: "dm",
+      now: NOW,
+      botUsername: "ferry_bot",
+    });
+    expect(started.bot).toBe("@ferry_bot");
+  });
+
+  it("a code sent by hand in a DM, after a bare /start, links the DM", async () => {
+    const store = await setup();
+    const { code } = await startTelegramLink({
+      store,
+      accountId: "acct",
+      purpose: "dm",
+      now: NOW,
+      botUsername: "b",
+    });
+    const tg = fakeTelegram([
+      message(1, "/start", { id: 42, type: "private" }),
+      message(2, code, { id: 42, type: "private" }),
+    ]);
+    await run(store, tg.fetchImpl);
+    const [d] = await store.listDestinations("acct");
+    expect(d).toMatchObject({ chatType: "private", chatId: "42" });
+    expect((await store.getAccount("acct"))?.notifyDestinationId).toBe(d!.id);
+  });
+
   it("a code links once", async () => {
     const store = await setup();
     const { code } = await startTelegramLink({
