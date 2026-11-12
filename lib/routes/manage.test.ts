@@ -335,6 +335,39 @@ describe("destinations", () => {
     });
   });
 
+  it("returns the subreddit's id, and the same one when it's added again", async () => {
+    const { store } = makeSyncDeps();
+    const first = await addRedditDestination(
+      store,
+      "acct",
+      "r/SideProject",
+      NOW,
+    );
+    if (!first.ok) throw new Error(first.error);
+    expect(first).toMatchObject({
+      added: true,
+      message: "Added r/SideProject.",
+    });
+    expect(
+      await addRedditDestination(store, "acct", "sideproject", NOW + 1),
+    ).toEqual({
+      ok: true,
+      added: false,
+      destinationId: first.destinationId,
+      message: "r/SideProject is already added.",
+    });
+    expect(await store.listDestinations("acct")).toHaveLength(1);
+    // The same name on another account is that account's own.
+    const other = await addRedditDestination(
+      store,
+      "other",
+      "SideProject",
+      NOW,
+    );
+    if (!other.ok) throw new Error(other.error);
+    expect(other.destinationId).not.toBe(first.destinationId);
+  });
+
   it("adds a Discord destination", async () => {
     const { store } = makeSyncDeps();
     const d = await addDiscordDestination(

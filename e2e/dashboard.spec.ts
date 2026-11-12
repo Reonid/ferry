@@ -317,3 +317,25 @@ test("announces a new alert from a poll, once", async ({ page }) => {
   ).toBeVisible();
   expect(await changesDuringNextPoll(page, "[data-alerts-live]")).toBe(0);
 });
+
+test("adding a subreddit that's already there says so, and adds no second one", async ({
+  page,
+}) => {
+  await openDashboard(page);
+  const destinations = page.getByRole("region", { name: "Destinations" });
+  await destinations.getByText("Add a destination", { exact: true }).click();
+  const field = destinations.getByRole("textbox", { name: "Add a subreddit" });
+  // The seed has r/SideProject: Reddit names ignore case.
+  await field.fill("sideproject");
+  await field.press("Enter");
+  // A has: locator is looked for inside the form, so it starts from page.
+  const form = destinations.locator("form").filter({
+    has: page.getByRole("textbox", { name: "Add a subreddit" }),
+  });
+  await expect(form.getByRole("status")).toHaveText(
+    "r/SideProject is already added.",
+  );
+  await expect(
+    destinations.getByText("r/SideProject", { exact: true }),
+  ).toHaveCount(1);
+});
