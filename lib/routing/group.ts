@@ -1,15 +1,29 @@
 import { createHash } from "node:crypto";
-import type { Post } from "../types";
+import type { MirrorPost, Post } from "../types";
 import { publishTime } from "./match";
 
-export function fingerprint(post: Post): string {
-  const text = post.text
+function hashOf(text: string, firstMedia: string): string {
+  const words = text
     .normalize("NFKC")
     .toLowerCase()
     .replace(/\s+/g, " ")
     .trim();
-  const first = post.assets[0]?.source ?? "";
-  return createHash("sha256").update(`${text}\n${first}`).digest("hex");
+  return createHash("sha256").update(`${words}\n${firstMedia}`).digest("hex");
+}
+
+export function fingerprint(post: Post): string {
+  return hashOf(post.text, post.assets[0]?.source ?? "");
+}
+
+/**
+ * The same for a post ready to send: its words and its first image or
+ * video. Copies that Buffer made one channel at a time, each with its own
+ * content item, still match on it.
+ */
+export function mirrorFingerprint(
+  m: Pick<MirrorPost, "text" | "images" | "video">,
+): string {
+  return hashOf(m.text, m.images[0]?.url ?? m.video?.url ?? "");
 }
 
 export function groupKeyFor(post: Post): string {

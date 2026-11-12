@@ -279,10 +279,13 @@ export default function PrivacyPage() {
                 Ferry for: your routes and the names of your channels and
                 destinations, the first 80 characters of recent posts, your
                 Reddit drafts and your alerts. An app you let make changes can
-                also pause, resume and add routes, send a failed post again and
-                send a test post, but never delete anything. Nothing goes to an
-                app until you connect it, and never a token, webhook or chat ID.
-                What it does next is up to that app&apos;s own privacy policy.
+                also add subreddits, pause, resume and add routes, send a failed
+                post again and send a test post, but never delete anything. When
+                an app asks for a Reddit link to a draft it improved, Ferry
+                builds the link from the title and text the app sends, and keeps
+                neither. Nothing goes to an app until you connect it, and never
+                a token, webhook or chat ID. What it does next is up to that
+                app&apos;s own privacy policy.
               </li>
             </ul>
             <p>

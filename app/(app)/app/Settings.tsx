@@ -203,8 +203,8 @@ export default function Settings({
             polish a Reddit draft. Add a custom connector with this address,
             then sign in with Buffer when it asks. It reads your routes,
             activity, drafts and alerts. Allow changes when it connects, and it
-            can also pause, resume, add and test routes and send failed posts
-            again. It can&apos;t delete anything.
+            can also add subreddits, pause, resume, add and test routes and send
+            failed posts again. It can&apos;t delete anything.
           </p>
           <div className={styles.address}>
             <CopyField label="Connector address" value={mcpUrl} />
@@ -221,6 +221,17 @@ export default function Settings({
               ))}
             </ul>
           )}
+          <p className={ui.hint}>
+            Add Buffer&apos;s own connector to the same app, and one chat can
+            write and schedule a post in Buffer, then see where Ferry carried
+            it.
+          </p>
+          <div className={styles.address}>
+            <CopyField
+              label="Buffer's MCP server"
+              value="https://mcp.buffer.com/mcp"
+            />
+          </div>
           <SectionStatus message={message} />
         </div>
       </div>

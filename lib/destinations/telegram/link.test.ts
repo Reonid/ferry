@@ -353,11 +353,16 @@ describe("processTelegramUpdates", () => {
       const [dest] = await store.listDestinations("acct");
       return dest!;
     };
+    // Two different posts: copies with the same words cross once a day.
     const postTo = (destination: Destination, groupKey: string) =>
       deliverToDestination({
         account: account(),
         destination,
-        mirror: mirror({ groupKey, postIds: [groupKey] }),
+        mirror: mirror({
+          groupKey,
+          postIds: [groupKey],
+          text: `Post ${groupKey}`,
+        }),
         deps,
       });
     const alertKeys = async () =>

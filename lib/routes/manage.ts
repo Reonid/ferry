@@ -205,14 +205,33 @@ export async function setRoutePaused(
   return { ok: true };
 }
 
+/**
+ * Adds a subreddit to draft for, or finds the one already there: Reddit
+ * names ignore case, so r/SideProject and r/sideproject are one.
+ */
 export async function addRedditDestination(
   store: Store,
   accountId: string,
   subredditInput: string,
   now: number,
-): Promise<ActionResult> {
+): Promise<
+  | { ok: true; message: string; destinationId: string; added: boolean }
+  | { ok: false; error: string }
+> {
   const name = normalizeSubreddit(subredditInput);
-  if (name === null) return fail("Enter a subreddit like r/SideProject.");
+  if (name === null)
+    return { ok: false, error: "Enter a subreddit like r/SideProject." };
+  const existing = (await store.listDestinations(accountId)).find(
+    (d) =>
+      d.kind === "reddit" && d.subreddit.toLowerCase() === name.toLowerCase(),
+  );
+  if (existing)
+    return {
+      ok: true,
+      message: `${existing.label} is already added.`,
+      destinationId: existing.id,
+      added: false,
+    };
   const dest: RedditDestination = {
     id: newId(),
     accountId,
@@ -223,7 +242,12 @@ export async function addRedditDestination(
     createdAt: now,
   };
   await store.putDestination(dest);
-  return { ok: true, message: `Added ${dest.label}.` };
+  return {
+    ok: true,
+    message: `Added ${dest.label}.`,
+    destinationId: dest.id,
+    added: true,
+  };
 }
 
 /** Server-side only: the returned destination holds the webhook token. */
