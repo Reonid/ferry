@@ -221,6 +221,17 @@ export default function Settings({
               ))}
             </ul>
           )}
+          <p className={ui.hint}>
+            Add Buffer&apos;s own connector to the same app, and one chat can
+            write and schedule a post in Buffer, then see where Ferry carried
+            it.
+          </p>
+          <div className={styles.address}>
+            <CopyField
+              label="Buffer's MCP server"
+              value="https://mcp.buffer.com/mcp"
+            />
+          </div>
           <SectionStatus message={message} />
         </div>
       </div>

@@ -366,6 +366,10 @@ test("lists a connected app in Settings, and Disconnect ends its access", async 
   await expect(
     settings.getByRole("textbox", { name: "Connector address" }),
   ).toHaveValue(`${BASE}/mcp`);
+  // Buffer's own server, to write and schedule posts in the same chat.
+  await expect(
+    settings.getByRole("textbox", { name: "Buffer's MCP server" }),
+  ).toHaveValue("https://mcp.buffer.com/mcp");
   const apps = settings.getByRole("list", { name: "Connected apps" });
   const count = await apps.getByRole("listitem").count();
   // Newest first, so the app just connected heads the list.
