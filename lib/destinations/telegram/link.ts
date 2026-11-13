@@ -14,7 +14,7 @@ import type {
   TelegramDestination,
   TelegramLink,
 } from "../../types";
-import { telegramCall } from "./api";
+import { telegramCall, type TelegramResult } from "./api";
 
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 /** Finds a link code inside a message. */
@@ -29,9 +29,17 @@ type ChatType = TelegramDestination["chatType"];
 interface TelegramMessage {
   message_id: number;
   chat: { id: number; type: ChatType; title?: string; username?: string };
+  /** The person who sent it. A channel post has none. */
+  from?: { id: number };
+  /** Set when a message is sent as a chat, as an anonymous group admin's is. */
+  sender_chat?: { id: number };
   text?: string;
   caption?: string;
 }
+type Call = <T>(
+  method: string,
+  params: Record<string, unknown>,
+) => Promise<TelegramResult<T>>;
 interface TelegramUpdate {
   update_id: number;
   message?: TelegramMessage;
@@ -138,6 +146,36 @@ async function upsertDestination(
   return dest;
 }
 
+/**
+ * Whether one of a group's admins sent this message. Any member can send the
+ * bot a command, but only an admin may connect the group: otherwise one member
+ * could post their own Buffer posts, through Ferry's bot, into a group that
+ * someone else connected. Telegram's list of admins is read each time, and a
+ * failed read is a no.
+ */
+async function sentByGroupAdmin(
+  message: TelegramMessage,
+  call: Call,
+): Promise<boolean> {
+  // A message sent as a chat counts only when that chat is the group itself,
+  // which is how an anonymous admin posts. A member posting as their own
+  // channel, or a post forwarded from a linked channel, doesn't count.
+  if (message.sender_chat) return message.sender_chat.id === message.chat.id;
+  const { from } = message;
+  if (!from) return false;
+  // Unlike getChatMember, this works whether or not Ferry's bot is an admin,
+  // and it lists the admins even in a group that hides its members.
+  const res = await call<{ user?: { id?: unknown } }[]>(
+    "getChatAdministrators",
+    { chat_id: message.chat.id },
+  );
+  return (
+    res.ok &&
+    Array.isArray(res.result) &&
+    res.result.some((admin) => admin.user?.id === from.id)
+  );
+}
+
 async function handleCode(args: {
   store: Store;
   token: string;
@@ -153,11 +191,8 @@ async function handleCode(args: {
   const { chat } = message;
   const isChat = chat.type !== "private";
   if (link.purpose === "chat" ? !isChat : isChat) return;
-  // Keeps a code single-use even if a slow run outlives the update lock. It
-  // lasts as long as the code does.
-  if (!(await store.claim(`tglink:${code}`, secondsLeft(link, now)))) return;
 
-  const call = (method: string, params: Record<string, unknown>) =>
+  const call: Call = (method, params) =>
     telegramCall({
       token,
       method,
@@ -165,6 +200,12 @@ async function handleCode(args: {
       fetchImpl,
       timeoutMs: TELEGRAM_LINK_CALL_TIMEOUT_MS,
     });
+  // A channel needs no check: only its admins can post in it.
+  const isGroup = chat.type === "group" || chat.type === "supergroup";
+  if (isGroup && !(await sentByGroupAdmin(message, call))) return;
+  // Keeps a code single-use even if a slow run outlives the update lock. It
+  // lasts as long as the code does.
+  if (!(await store.claim(`tglink:${code}`, secondsLeft(link, now)))) return;
 
   if (link.purpose === "chat") {
     const dest = await upsertDestination(

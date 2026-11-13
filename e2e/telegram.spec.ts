@@ -6,7 +6,7 @@ import { tabTo } from "./keyboard";
 const BOT = "https://t.me/FerryTestBot";
 const CODE = /^FERRY-[A-HJ-NP-Z2-9]{8}$/;
 const HOW =
-  "For a channel, post this code there once Ferry is an admin. Ferry asks to delete messages only so it can remove the code post. For a group, Ferry connects as soon as you add it.";
+  "For a channel, post this code there once Ferry is an admin. Ferry asks to delete messages only so it can remove the code post. For a group, Ferry connects as soon as one of its admins adds it.";
 
 interface Answer {
   status: "waiting" | "connected" | "expired";
