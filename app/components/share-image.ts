@@ -7,5 +7,5 @@ export const SHARE_IMAGE = {
   url: "/opengraph-image",
   width: 1200,
   height: 630,
-  alt: "Ferry: your Buffer posts on Discord and Telegram. Pills for Discord, Telegram and Reddit drafts under the headline.",
+  alt: "Ferry: your Buffer posts on Discord, Telegram and Reddit. Pills for Discord, Telegram and Reddit drafts under the headline.",
 };

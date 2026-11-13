@@ -544,7 +544,7 @@ test("passes axe in light and dark with the panel open", async ({ page }) => {
 test("landing mentions Telegram", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Your Buffer posts on Discord and Telegram",
+    "Your Buffer posts on Discord, Telegram and Reddit",
   );
   await expect(page.getByRole("tab", { name: "Telegram" })).toBeVisible();
 

@@ -6,6 +6,7 @@ import type { Connection } from "@/lib/oauth/connections";
 import type { ActionResult } from "@/lib/routes/manage";
 import type { PublicDestination } from "@/lib/types";
 import CopyField from "@/app/components/CopyField";
+import { PROMISE } from "@/app/components/promise";
 import ui from "@/app/components/ui.module.css";
 import {
   deleteMyDataAction,
@@ -155,9 +156,8 @@ export default function Settings({
         <div className={styles.group}>
           <h3 className={ui.label}>Buffer account</h3>
           <p className={ui.hint}>
-            Signed in with Buffer{accountName ? ` as ${accountName}` : ""}.
-            Ferry can read your Buffer posts. It can&apos;t post, edit or delete
-            anything.
+            Signed in with Buffer{accountName ? ` as ${accountName}` : ""}.{" "}
+            {PROMISE}
           </p>
           <div className={styles.buttons}>
             <form onSubmit={refresh.onSubmit}>

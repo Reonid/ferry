@@ -9,9 +9,9 @@ import { tabTo } from "./keyboard";
 
 const DISCLAIMER =
   "Ferry is an independent project built on the Buffer API. It is not affiliated with or endorsed by Buffer.";
-const PITCH = "Your Buffer posts on Discord and Telegram";
+const PITCH = "Your Buffer posts on Discord, Telegram and Reddit";
 const PROMISE =
-  "Ferry can read your Buffer posts. It can't post, edit or delete anything.";
+  "Ferry can read your Buffer posts. It can't post, edit or delete anything in Buffer.";
 const DRAFT_TITLE = "We just opened the beta of our scheduling side project";
 const DRAFT_BODY = "We just opened the beta. Come break things with us.";
 const IMAGE_NOTE =
@@ -107,6 +107,16 @@ test("landing opens Ferry when signed in", async ({ page }) => {
     page.getByRole("link", { name: "Sign in with Buffer" }),
   ).toHaveCount(0);
   await expect(page.getByText(PROMISE, { exact: true })).toBeVisible();
+});
+
+test("Settings makes the landing's promise about Buffer, word for word", async ({
+  page,
+}) => {
+  await signIn(page);
+  await page.goto("/app");
+  await expect(page.getByRole("region", { name: "Settings" })).toContainText(
+    PROMISE,
+  );
 });
 
 test("the landing map sails once, and stays still under reduced motion", async ({

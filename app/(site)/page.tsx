@@ -4,6 +4,7 @@ import BrandMark from "@/app/components/BrandMark";
 import { DISCLAIMER } from "@/app/components/disclaimer";
 import ExampleCrossing from "@/app/components/ExampleCrossing";
 import { LockIcon } from "@/app/components/icons";
+import { PROMISE } from "@/app/components/promise";
 import HowItWorks from "./HowItWorks";
 import PlacesSwitcher, { type Place } from "./PlacesSwitcher";
 import { DiscordPreview, RedditPreview, TelegramPreview } from "./Previews";
@@ -29,10 +30,6 @@ const LEFT: Record<string, string> = {
     "You’re signed out. Ferry keeps carrying your posts until you choose Delete my data.",
   deleted: "Your data is deleted, and Ferry has stopped carrying your posts.",
 };
-
-/** What Ferry promises about Buffer access, word for word wherever it's said. */
-const PROMISE =
-  "Ferry can read your Buffer posts. It can't post, edit or delete anything.";
 
 /** The board's own figures, most votes first (suggestions.buffer.com). */
 const VOTES = [
@@ -183,12 +180,13 @@ export default async function Home(props: PageProps<"/">) {
             )}
             <div className={styles.heroText}>
               <h1 id="hero-h" className={styles.heroHead}>
-                Your Buffer posts on Discord and Telegram
+                Your Buffer posts on Discord, Telegram and Reddit
               </h1>
               <div className={styles.heroSide}>
                 <p className={styles.lead}>
-                  Keep writing in Buffer. Ferry sends each post on within about
-                  3 minutes, and drafts it for Reddit.
+                  Keep writing in Buffer. Ferry sends each post to Discord and
+                  Telegram, usually within about 3 minutes, and drafts it for
+                  Reddit.
                 </p>
                 <div className={styles.actions}>
                   <a href={main.href} className={styles.primary}>
@@ -404,7 +402,10 @@ export default async function Home(props: PageProps<"/">) {
               >
                 <BrandMark />
               </a>
-              <p>Sends the posts Buffer publishes to Discord and Telegram.</p>
+              <p>
+                Sends the posts Buffer publishes to Discord and Telegram, and
+                drafts them for Reddit.
+              </p>
             </div>
             <ul className={styles.footLinks}>
               <li>
