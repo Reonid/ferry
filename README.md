@@ -6,7 +6,7 @@
 
 **Ferry carries your Buffer posts to the places Buffer doesn't go.**
 
-**Live at [ferry-crossing.vercel.app](https://ferry-crossing.vercel.app).** Sign in with your Buffer account to try it.
+**Live at [ferry-crossing.vercel.app](https://ferry-crossing.vercel.app).** Sign in with your Buffer account to try it, or [watch the 2-minute demo](https://youtu.be/iPw0kfuJX1g) first.
 
 Keep writing and scheduling in Buffer. When Buffer publishes a post, Ferry sends it on to your Discord channels and Telegram chats, usually within about 3 minutes, and turns it into a Reddit draft that you post with one tap. You never write a post twice, and Buffer stays the only place you write.
 
