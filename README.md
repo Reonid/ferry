@@ -6,6 +6,8 @@
 
 **Ferry carries your Buffer posts to the places Buffer doesn't go.**
 
+**Live at [ferry-crossing.vercel.app](https://ferry-crossing.vercel.app).** Sign in with your Buffer account to try it.
+
 Keep writing and scheduling in Buffer. When Buffer publishes a post, Ferry sends it on to your Discord channels and Telegram chats, usually within about 3 minutes, and turns it into a Reddit draft that you post with one tap. You never write a post twice, and Buffer stays the only place you write.
 
 Ferry signs in with Buffer using read-only access. It can read your Buffer posts. It can't post, edit or delete anything.
@@ -128,7 +130,7 @@ Ferry has its own [MCP](https://modelcontextprotocol.io) server, so an AI app ca
 To connect it, add a custom connector with your Ferry's address followed by `/mcp`. The exact address is under Settings → AI assistants on your dashboard.
 
 - **Claude:** Customize → Connectors → Add custom connector.
-- **ChatGPT:** chatgpt.com/plugins, then + and Add custom MCP server.
+- **ChatGPT:** chatgpt.com/plugins, then Add → Add custom MCP server. ChatGPT already lists an unrelated app called Ferry, so give yours another name, such as Ferry for Buffer.
 
 Then sign in with Buffer when the app asks. The consent screen has an unticked box that lets the app make changes. Tick it only if the app should have the tools marked Yes below.
 
@@ -181,6 +183,7 @@ The privacy page in the app lists everything Ferry stores and for how long, and 
   - Ferry reads Telegram's updates only while its Connect panel is open, so a chat links only while you have the panel up.
   - Two copies of Ferry can't share one bot, because each would take the other's updates.
 - **Videos on Discord** arrive as their thumbnail, with the button back to the original.
+- **Discord channel names:** Discord's sign-in doesn't share the channel's name, so a new Discord destination starts as "Discord channel". Rename it under Destinations on the dashboard.
 - **Different words, different messages.** If you word a post differently for each network, each version arrives separately. To avoid that, route just one of those channels.
 - **Routes look forward.** A route carries posts published after it was created, and posts published while it's paused never cross.
 - **Locked channels** can't feed a route until you unlock them in Buffer.
