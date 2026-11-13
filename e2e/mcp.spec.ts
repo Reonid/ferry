@@ -208,6 +208,12 @@ test("names the site an app returns to, and cautions about unknown ones", async 
   const main = page.getByRole("main");
   await expect(main.getByText("claude.ai", { exact: true })).toBeVisible();
   await expect(main.getByText(/doesn't know/)).toHaveCount(0);
+  // Someone else's chat app could have started this request.
+  await expect(
+    main.getByText(
+      "Allow only if you started connecting Ferry yourself, just now.",
+    ),
+  ).toBeVisible();
 
   // An app may call itself Claude; only its site says where it lives.
   const lookalike = "https://claude-connector.example/cb";
