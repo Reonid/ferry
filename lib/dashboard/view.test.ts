@@ -7,10 +7,13 @@ import type {
 } from "../types";
 import {
   announcements,
+  channelsOnMap,
   deliveryHref,
   excerptText,
+  lockedNote,
   mapLabel,
   newLandings,
+  readable,
   relativeTime,
   routable,
   routeLabel,
@@ -130,6 +133,90 @@ describe("routable", () => {
         telegram("private"),
       ].map(routable),
     ).toEqual([true, true, true, true, true, false]);
+  });
+});
+
+describe("readable", () => {
+  it("leaves out channels Buffer has locked", () => {
+    const open = channel("page", "startPage", "My page");
+    expect([open, { ...open, isLocked: true }].map(readable)).toEqual([
+      true,
+      false,
+    ]);
+  });
+});
+
+describe("channelsOnMap", () => {
+  const locked = { ...channel("page", "startPage", "My page"), isLocked: true };
+  const all = [...channels, locked];
+
+  it("draws the channels routes use, paused ones included, in Buffer's order", () => {
+    const paused = { ...route, id: "r2", channelIds: ["bsky"], paused: true };
+    expect(
+      channelsOnMap(all, [{ ...route, channelIds: ["li"] }, paused]).map(
+        (c) => c.id,
+      ),
+    ).toEqual(["bsky", "li"]);
+  });
+
+  it("draws the channels a route could use until a route uses one", () => {
+    expect(channelsOnMap(all, [])).toEqual(channels);
+    expect(channelsOnMap(all, [{ ...route, channelIds: ["gone"] }])).toEqual(
+      channels,
+    );
+  });
+
+  it("draws locked channels rather than none when Buffer locked them all", () => {
+    expect(channelsOnMap([locked], [])).toEqual([locked]);
+  });
+
+  it("keeps a routed channel on the map after Buffer locks it", () => {
+    expect(channelsOnMap(all, [{ ...route, channelIds: ["page"] }])).toEqual([
+      locked,
+    ]);
+  });
+});
+
+describe("lockedNote", () => {
+  const lock = (c: Channel): Channel => ({ ...c, isLocked: true });
+  const page = lock(channel("page", "startPage", "My page"));
+  const x = lock(channel("x", "twitter", "Ferry X"));
+  const co = lock(channel("li2", "linkedin", "Ferry Co"));
+
+  it("says nothing when no channel is locked", () => {
+    expect(lockedNote(channels)).toBeNull();
+  });
+
+  it("names up to three locked channels and says how to unlock them", () => {
+    expect(lockedNote([...channels, page])).toBe(
+      "My page on Start Page is locked in Buffer, so it isn't listed. Unlock it in Buffer, then use Refresh channels in Settings.",
+    );
+    expect(lockedNote([page, ...channels, x])).toBe(
+      "My page on Start Page and Ferry X on X are locked in Buffer, so they aren't listed. To use one, unlock it in Buffer, then use Refresh channels in Settings.",
+    );
+    expect(lockedNote([page, x, co, ...channels])).toBe(
+      "My page on Start Page, Ferry X on X and Ferry Co on LinkedIn are locked in Buffer, so they aren't listed. To use one, unlock it in Buffer, then use Refresh channels in Settings.",
+    );
+  });
+
+  it("counts them instead once more than three are locked", () => {
+    const pics = lock(channel("ig", "instagram", "Ferry Pics"));
+    expect(lockedNote([page, x, ...channels, co, pics])).toBe(
+      "4 of your Buffer channels are locked, so they aren't listed. To use one, unlock it in Buffer, then use Refresh channels in Settings.",
+    );
+  });
+
+  it("says Ferry can't read anything when every channel is locked", () => {
+    expect(lockedNote([page])).toBe(
+      "My page on Start Page is locked in Buffer, so Ferry can't read its posts. Unlock it in Buffer, then use Refresh channels in Settings.",
+    );
+    expect(lockedNote([page, x])).toBe(
+      "My page on Start Page and Ferry X on X are locked in Buffer, so Ferry can't read their posts. To use one, unlock it in Buffer, then use Refresh channels in Settings.",
+    );
+    const pics = lock(channel("ig", "instagram", "Ferry Pics"));
+    expect(lockedNote([page, x, co, pics])).toBe(
+      "All 4 of your Buffer channels are locked, so Ferry can't read their posts. To use one, unlock it in Buffer, then use Refresh channels in Settings.",
+    );
   });
 });
 

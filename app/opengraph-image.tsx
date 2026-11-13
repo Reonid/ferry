@@ -3,7 +3,7 @@ import { SHIP, SHIP_BOX } from "@/app/components/ship";
 
 // Repeated in app/components/share-image.ts, which the layouts read.
 export const alt =
-  "Ferry: your Buffer posts on Discord and Telegram. Pills for Discord, Telegram and Reddit drafts under the headline.";
+  "Ferry: your Buffer posts on Discord, Telegram and Reddit. Pills for Discord, Telegram and Reddit drafts under the headline.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -68,13 +68,12 @@ export default function OpenGraphImage() {
         style={{
           display: "flex",
           marginTop: 56,
-          maxWidth: 900,
           fontSize: 76,
           lineHeight: 1.06,
           letterSpacing: "-0.03em",
         }}
       >
-        Your Buffer posts on Discord and Telegram
+        Your Buffer posts on Discord, Telegram and Reddit
       </div>
       <div
         style={{

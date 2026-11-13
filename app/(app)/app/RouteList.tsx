@@ -1,7 +1,13 @@
 "use client";
 
 import { useId, useState, type ReactNode } from "react";
-import { channelName, routable, routeLabel } from "@/lib/dashboard/view";
+import {
+  channelName,
+  lockedNote,
+  readable,
+  routable,
+  routeLabel,
+} from "@/lib/dashboard/view";
 import { serviceLabel } from "@/lib/mirror/services";
 import type { ActionResult } from "@/lib/routes/manage";
 import type { Channel, PublicDestination, Route } from "@/lib/types";
@@ -170,10 +176,15 @@ function CreateRoute({
     resetOnSuccess: true,
   });
   const tipId = useId();
+  const lockedId = useId();
   const toId = useId();
   const tagsId = useId();
   const tagsHintId = useId();
   const firstActive = destinations.find((d) => d.status === "active");
+  // Buffer won't let Ferry read a locked channel, so it isn't offered, and a
+  // note says why it's missing (or why the list is empty, if all are locked).
+  const pickable = channels.filter(readable);
+  const note = lockedNote(channels);
   return (
     <div className={styles.create}>
       <details open={startOpen}>
@@ -185,7 +196,10 @@ function CreateRoute({
           className={styles.form}
           aria-label="New route"
         >
-          <fieldset className={styles.channels} aria-describedby={tipId}>
+          <fieldset
+            className={styles.channels}
+            aria-describedby={note ? `${lockedId} ${tipId}` : tipId}
+          >
             <legend className={ui.label}>From</legend>
             {channels.length === 0 ? (
               <p className={ui.hint}>
@@ -193,21 +207,17 @@ function CreateRoute({
                 in Settings.
               </p>
             ) : (
-              channels.map((c) => (
+              pickable.map((c) => (
                 <label key={c.id} className={styles.check}>
-                  <input
-                    // A new input when the lock changes, so a box ticked
-                    // before its channel locked isn't left ticked but unsent.
-                    key={c.isLocked ? "locked" : "open"}
-                    type="checkbox"
-                    name="channelIds"
-                    value={c.id}
-                    disabled={c.isLocked}
-                  />
+                  <input type="checkbox" name="channelIds" value={c.id} />
                   {channelName(c)} on {serviceLabel(c.service)}
-                  {c.isLocked ? ", locked in Buffer" : ""}
                 </label>
               ))
+            )}
+            {note && (
+              <p id={lockedId} className={ui.hint}>
+                {note}
+              </p>
             )}
             <p id={tipId} className={ui.hint}>
               {COPY_TIP}

@@ -2,7 +2,12 @@
 
 import { useEffect, useMemo, useRef, type Ref } from "react";
 import { layoutChart, NARROW, WIDE, type Chart } from "@/lib/dashboard/chart";
-import { mapLabel, newLandings, routable } from "@/lib/dashboard/view";
+import {
+  channelsOnMap,
+  mapLabel,
+  newLandings,
+  routable,
+} from "@/lib/dashboard/view";
 import type {
   ActivityEntry,
   Channel,
@@ -179,13 +184,19 @@ export default function CrossingMap({
 }) {
   // A Telegram DM takes alerts only, so it gets no port on the far shore.
   const ports = useMemo(() => destinations.filter(routable), [destinations]);
+  // A Buffer channel no route uses stays off the near shore once routes exist.
+  const sources = useMemo(
+    () => channelsOnMap(channels, routes),
+    [channels, routes],
+  );
   const wide = useMemo(
-    () => layoutChart({ channels, destinations: ports, routes }, WIDE),
-    [channels, ports, routes],
+    () => layoutChart({ channels: sources, destinations: ports, routes }, WIDE),
+    [sources, ports, routes],
   );
   const narrow = useMemo(
-    () => layoutChart({ channels, destinations: ports, routes }, NARROW),
-    [channels, ports, routes],
+    () =>
+      layoutChart({ channels: sources, destinations: ports, routes }, NARROW),
+    [sources, ports, routes],
   );
   const label = givenLabel ?? mapLabel(routes, channels, destinations);
   const wideRef = useRef<SVGSVGElement>(null);

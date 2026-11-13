@@ -5,7 +5,7 @@ test("landing shows its heading", async ({ page }) => {
   await expect(
     page.getByRole("heading", {
       level: 1,
-      name: "Your Buffer posts on Discord and Telegram",
+      name: "Your Buffer posts on Discord, Telegram and Reddit",
     }),
   ).toBeVisible();
 });
