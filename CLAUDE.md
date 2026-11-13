@@ -4,7 +4,7 @@
 
 - Node 24: `.nvmrc` is `24`, `engines.node` is `>=24`. TypeScript `strict` plus `noUncheckedIndexedAccess`.
 - Next.js 16 differs from older versions. Before writing route handlers, server actions, `proxy.ts` or `cookies()` code, read the matching guide in `node_modules/next/dist/docs/`. `cookies()` is async.
-- Dependencies are exactly the Tech Stack list plus their `@types`, ESLint, Prettier and `eslint-config-next`/`eslint-config-prettier`. Add nothing else.
+- Runtime dependencies are exactly `next`, `react`, `react-dom`, `iron-session`, `@upstash/redis` and `@upstash/qstash`. Development adds only TypeScript, Vitest, Playwright with axe, `graphql` (to check queries against Buffer's schema), ESLint, Prettier, `eslint-config-next`, `eslint-config-prettier` and `@types`. Add nothing else.
 - Buffer access is read-only. The OAuth scope string is exactly `account:read posts:read offline_access`. No code path sends a Buffer mutation.
 - Endpoints:
   - Buffer authorize `https://auth.buffer.com/auth`, token `https://auth.buffer.com/token`, API `https://api.buffer.com` (POST JSON `{query, variables}`).
@@ -15,7 +15,7 @@
 - The product name is "Ferry". Every page's footer reads exactly: "Ferry is an independent project built on the Buffer API. It is not affiliated with or endorsed by Buffer."
 - Accessibility: full keyboard path, visible focus, WCAG AA in light and dark, `prefers-reduced-motion` respected, live updates through `aria-live="polite"`.
 - Small conventional commits (`feat:`, `fix:`, `test:`, `chore:`, `docs:`, `ci:`). Stage files by name, never `git add -A`. Every commit leaves `npm run lint`, `npm run typecheck` and `npm test` green.
-- Implementers never deploy, change GitHub settings, or touch real credentials. Task 14 is run by the controller with Leon.
+- Implementer subagents never deploy, change GitHub settings, or touch real credentials.
 
 ## Commands
 
