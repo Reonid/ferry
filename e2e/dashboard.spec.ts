@@ -16,6 +16,7 @@ type Snapshot = Record<string, unknown> & {
   account: Record<string, unknown>;
   activity: unknown[];
   alerts: unknown[];
+  channels: unknown[];
 };
 
 /** Serves every /api/live poll with the real snapshot, changed by `change`. */
@@ -108,6 +109,52 @@ test("shows the seeded routes in the map and the list", async ({ page }) => {
   await expect(routes.locator("[data-sync-line]")).toHaveText(
     /^(Checking now|Next check .+|No check scheduled) · \d+ Buffer API calls? today$/,
   );
+});
+
+test("leaves unrouted channels off the map, and explains locked ones in New route", async ({
+  page,
+}) => {
+  const channel = (id: string, service: string, name: string) => ({
+    id,
+    organizationId: "dev-org",
+    service,
+    name,
+    displayName: name,
+    avatar: "",
+    isDisconnected: false,
+    isQueuePaused: false,
+    isLocked: false,
+  });
+  await serveLive(page, (snapshot) => {
+    snapshot.channels.push(channel("e2e-threads", "threads", "Ferry Threads"), {
+      ...channel("e2e-page", "startPage", "My page"),
+      isLocked: true,
+    });
+  });
+  await openDashboard(page);
+
+  const routes = page.getByRole("region", { name: "Routes" });
+  await routes.locator("summary", { hasText: "New route" }).click();
+  const from = routes.getByRole("group", { name: "From" });
+  // Threads has no route yet but could have one. Buffer won't let Ferry
+  // read the locked page, so it isn't offered, and a note says why.
+  await expect(from.getByText("Ferry Threads on Threads")).toBeVisible();
+  await expect(from.getByRole("checkbox", { name: /My page/ })).toHaveCount(0);
+  await expect(
+    from.getByText(
+      "My page on Start Page is locked in Buffer, so it isn't listed. Unlock it in Buffer, then use Refresh channels in Settings.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(from).toHaveAccessibleDescription(
+    /^My page on Start Page is locked in Buffer/,
+  );
+
+  // The map draws only the channels routes use.
+  const map = page.getByRole("img", { name: /^Crossing map/ });
+  await expect(map.locator("text", { hasText: "Ferry Dev" })).toHaveCount(1);
+  for (const name of ["Ferry Threads", "My page"])
+    await expect(map.locator("text", { hasText: name })).toHaveCount(0);
 });
 
 test("passes axe in light and dark", async ({ page }) => {

@@ -85,6 +85,63 @@ export function routable(destination: PublicDestination): boolean {
   );
 }
 
+/**
+ * Whether Ferry can read a channel's posts. Buffer refuses any posts query
+ * that names a locked channel, so a locked one can't feed a route.
+ */
+export function readable(channel: Channel): boolean {
+  return !channel.isLocked;
+}
+
+/**
+ * The Buffer channels the map draws: the ones routes use. Buffer lists every
+ * channel on the account, and one that no route uses would sit greyed out as
+ * if it were broken. Until a route uses one, the map draws the channels a
+ * route could use, so it still says what could be routed.
+ */
+export function channelsOnMap(channels: Channel[], routes: Route[]): Channel[] {
+  const used = new Set(routes.flatMap((r) => r.channelIds));
+  const routed = channels.filter((c) => used.has(c.id));
+  if (routed.length > 0) return routed;
+  const open = channels.filter(readable);
+  // All locked: draw them anyway, not an empty shore that says there are none.
+  return open.length > 0 ? open : channels;
+}
+
+/** "A", "A and B", "A, B and C". */
+function andList(items: string[]): string {
+  const last = items.at(-1) ?? "";
+  return items.length < 2
+    ? last
+    : `${items.slice(0, -1).join(", ")} and ${last}`;
+}
+
+/** The most locked channels the route form's note names before it counts. */
+const NAMED_LOCKED = 3;
+
+/**
+ * Why channels Buffer has locked are missing from the route form, worded
+ * like the alert a routed channel raises when it locks. Past a few names it
+ * counts them: a downgrade can lock most of an account, and a plan may have
+ * room to unlock only one. When every channel is locked, it stands in for
+ * the empty list. Null when none are locked.
+ */
+export function lockedNote(channels: Channel[]): string | null {
+  const locked = channels.filter((c) => !readable(c));
+  if (locked.length === 0) return null;
+  const one = locked.length === 1;
+  const all = locked.length === channels.length;
+  const which =
+    locked.length <= NAMED_LOCKED
+      ? `${andList(locked.map((c) => `${channelName(c)} on ${serviceLabel(c.service)}`))} ${one ? "is" : "are"} locked in Buffer`
+      : `${all ? "All " : ""}${locked.length} of your Buffer channels are locked`;
+  const effect = all
+    ? `so Ferry can't read ${one ? "its" : "their"} posts`
+    : `so ${one ? "it isn't" : "they aren't"} listed`;
+  const fix = one ? "Unlock it in Buffer" : "To use one, unlock it in Buffer";
+  return `${which}, ${effect}. ${fix}, then use Refresh channels in Settings.`;
+}
+
 export function destinationName(
   id: string,
   destinations: PublicDestination[],

@@ -189,15 +189,6 @@
   border-color: var(--color-rule-strong);
 }
 
-.check:has(input:disabled) {
-  border-style: dashed;
-  cursor: not-allowed;
-}
-
-.check:has(input:disabled):hover {
-  border-color: var(--color-rule);
-}
-
 .check:has(input:checked) {
   border-color: var(--color-accent);
   background: color-mix(
