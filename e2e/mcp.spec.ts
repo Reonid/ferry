@@ -297,6 +297,8 @@ test("can't be framed by another site", async ({ request }) => {
     expect(page.headers()["content-security-policy"], path).toBe(
       "frame-ancestors 'none'",
     );
+    expect(page.headers()["x-content-type-options"], path).toBe("nosniff");
+    expect(page.headers()["x-powered-by"], path).toBeUndefined();
   }
 });
 

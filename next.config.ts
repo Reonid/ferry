@@ -4,16 +4,21 @@ import type { NextConfig } from "next";
 // and the dev fetch logger would print them: whole with `fullUrl`, and
 // otherwise the start of the path, with the bot id and part of the secret.
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
   async headers() {
     return [
       {
         // No page of Ferry's belongs in another site's frame: the consent
         // screen's Allow and the dashboard's Disconnect and Delete my data
-        // could be clicked through one.
+        // could be clicked through one. Browsers also take each response as
+        // the type it says it is, and other sites get at most the origin in
+        // a Referer.
         source: "/:path*",
         headers: [
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
         ],
       },
       {
