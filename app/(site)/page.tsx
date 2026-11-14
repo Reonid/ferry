@@ -107,7 +107,7 @@ const DASHBOARD_POINTS = [
 const QUESTIONS: { q: string; a: ReactNode }[] = [
   {
     q: "How is Ferry different from Zapier?",
-    a: "Ferry is built for Buffer: routes follow the tags in Buffer’s composer, a post sent to several channels arrives once, and a failed delivery raises an alert with a Retry button.",
+    a: "Ferry is built around how Buffer works: routes follow the tags in Buffer’s composer, a post sent to several channels arrives once, and a failed delivery raises an alert with a Retry button.",
   },
   {
     q: "Why does Reddit get a draft?",

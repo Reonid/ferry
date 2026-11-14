@@ -130,7 +130,7 @@ Ferry has its own [MCP](https://modelcontextprotocol.io) server, so an AI app ca
 To connect it, add a custom connector with your Ferry's address followed by `/mcp`. The exact address is under Settings → AI assistants on your dashboard.
 
 - **Claude:** Customize → Connectors → Add custom connector.
-- **ChatGPT:** chatgpt.com/plugins, then Add → Add custom MCP server. ChatGPT already lists an unrelated app called Ferry, so give yours another name, such as Ferry for Buffer.
+- **ChatGPT:** chatgpt.com/plugins, then Add → Add custom MCP server. ChatGPT already lists an unrelated app called Ferry, so give yours another name, such as Ferry Crossing. Leave "Buffer" out of it: Buffer's API terms keep its name out of other apps' names.
 
 Then sign in with Buffer when the app asks. The consent screen has an unticked box that lets the app make changes. Tick it only if the app should have the tools marked Yes below.
 
