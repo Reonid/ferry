@@ -31,6 +31,14 @@ describe("crypto", () => {
     expect(() => decrypt(parts.join("."), key)).toThrow();
   });
 
+  it("rejects a shortened tag, which would check fewer of its bits", () => {
+    const parts = encrypt("hello world", key).split(".");
+    parts[2] = Buffer.from(parts[2] ?? "", "base64url")
+      .subarray(0, 4)
+      .toString("base64url");
+    expect(() => decrypt(parts.join("."), key)).toThrow();
+  });
+
   it("rejects the wrong key", () => {
     expect(() => decrypt(encrypt("x", key), randomBytes(32))).toThrow();
   });

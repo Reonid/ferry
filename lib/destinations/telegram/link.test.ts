@@ -30,10 +30,17 @@ type Chat = {
   title?: string;
   username?: string;
 };
+type Message = {
+  message_id: number;
+  chat: Chat;
+  text?: string;
+  from?: { id: number };
+  sender_chat?: { id: number };
+};
 type Update = {
   update_id: number;
-  message?: { message_id: number; chat: Chat; text?: string };
-  channel_post?: { message_id: number; chat: Chat; text?: string };
+  message?: Message;
+  channel_post?: Message;
 };
 const channelPost = (
   id: number,
@@ -53,12 +60,22 @@ const channelPost = (
     text,
   },
 });
-const message = (id: number, text: string, chat: Chat): Update => ({
+const message = (
+  id: number,
+  text: string,
+  chat: Chat,
+  sender?: Pick<Message, "from" | "sender_chat">,
+): Update => ({
   update_id: id,
-  message: { message_id: id * 10, chat, text },
+  message: { message_id: id * 10, chat, text, ...sender },
 });
+/** The user the fake Telegram lists as every group's admin. */
+const ADMIN = { id: 7 };
 
-/** Serves getUpdates from a queue and records every call. */
+/**
+ * Serves getUpdates from a queue and records every call. getChatAdministrators
+ * lists ADMIN, as the group's creator.
+ */
 function fakeTelegram(updates: Update[], delayed = false) {
   const calls: { method: string; body: Record<string, unknown> }[] = [];
   const fetchImpl = (async (url: string, init: RequestInit) => {
@@ -70,6 +87,11 @@ function fakeTelegram(updates: Update[], delayed = false) {
       const result = updates.filter((u) => u.update_id >= body.offset);
       return Response.json({ ok: true, result });
     }
+    if (method === "getChatAdministrators")
+      return Response.json({
+        ok: true,
+        result: [{ status: "creator", user: { id: ADMIN.id, is_bot: false } }],
+      });
     return Response.json({ ok: true, result: true });
   }) as unknown as typeof fetch;
   return { calls, fetchImpl };
@@ -158,7 +180,7 @@ describe("processTelegramUpdates", () => {
         });
   });
 
-  it("a /start@bot code in a group links the group", async () => {
+  it("a /start@bot code from a group's admin links the group", async () => {
     const store = await setup();
     const { code } = await startTelegramLink({
       store,
@@ -168,11 +190,12 @@ describe("processTelegramUpdates", () => {
       botUsername: "b",
     });
     const tg = fakeTelegram([
-      message(1, `/start@ferry_bot ${code}`, {
-        id: -55,
-        type: "supergroup",
-        title: "  Crew  ",
-      }),
+      message(
+        1,
+        `/start@ferry_bot ${code}`,
+        { id: -55, type: "supergroup", title: "  Crew  " },
+        { from: ADMIN },
+      ),
     ]);
     await run(store, tg.fetchImpl);
     const [d] = await store.listDestinations("acct");
@@ -182,6 +205,107 @@ describe("processTelegramUpdates", () => {
       label: "Crew",
       username: null,
     });
+    expect(
+      tg.calls.find((c) => c.method === "getChatAdministrators")?.body,
+    ).toEqual({ chat_id: -55 });
+  });
+
+  it("a code from a group member who isn't an admin links nothing, and stays open", async () => {
+    const store = await setup();
+    const { code } = await startTelegramLink({
+      store,
+      accountId: "acct",
+      purpose: "chat",
+      now: NOW,
+      botUsername: "b",
+    });
+    const group: Chat = { id: -55, type: "group", title: "Crew" };
+    const tg = fakeTelegram([
+      message(1, `/start@ferry_bot ${code}`, group, { from: { id: 8 } }),
+      // A message with no sender at all is no admin's either.
+      message(2, code, group),
+    ]);
+    await run(store, tg.fetchImpl);
+    expect(await store.listDestinations("acct")).toHaveLength(0);
+    expect((await store.getTelegramLink(code))?.destinationId).toBeNull();
+    expect(tg.calls.some((c) => c.method === "deleteMessage")).toBe(false);
+    // The group's own admin can still use it.
+    await run(
+      store,
+      fakeTelegram([message(3, code, group, { from: ADMIN })]).fetchImpl,
+    );
+    expect(await store.listDestinations("acct")).toHaveLength(1);
+  });
+
+  it("an anonymous admin, posting as the group, links it without a member check", async () => {
+    const store = await setup();
+    const { code } = await startTelegramLink({
+      store,
+      accountId: "acct",
+      purpose: "chat",
+      now: NOW,
+      botUsername: "b",
+    });
+    const tg = fakeTelegram([
+      message(
+        1,
+        code,
+        { id: -55, type: "supergroup", title: "Crew" },
+        { from: { id: 1087968824 }, sender_chat: { id: -55 } },
+      ),
+    ]);
+    await run(store, tg.fetchImpl);
+    expect(await store.listDestinations("acct")).toHaveLength(1);
+    expect(tg.calls.some((c) => c.method === "getChatAdministrators")).toBe(
+      false,
+    );
+  });
+
+  it("a code sent as another chat, such as a member's own channel, links nothing", async () => {
+    const store = await setup();
+    const { code } = await startTelegramLink({
+      store,
+      accountId: "acct",
+      purpose: "chat",
+      now: NOW,
+      botUsername: "b",
+    });
+    // Telegram's stand-in sender is ADMIN here, to show it isn't trusted.
+    const tg = fakeTelegram([
+      message(
+        1,
+        code,
+        { id: -55, type: "supergroup" },
+        { from: ADMIN, sender_chat: { id: -1009 } },
+      ),
+    ]);
+    await run(store, tg.fetchImpl);
+    expect(await store.listDestinations("acct")).toHaveLength(0);
+    expect((await store.getTelegramLink(code))?.destinationId).toBeNull();
+  });
+
+  it("refuses a group code when Telegram can't confirm the sender is an admin", async () => {
+    const store = await setup();
+    const { code } = await startTelegramLink({
+      store,
+      accountId: "acct",
+      purpose: "chat",
+      now: NOW,
+      botUsername: "b",
+    });
+    const tg = fakeTelegram([
+      message(1, code, { id: -55, type: "group" }, { from: ADMIN }),
+    ]);
+    const failing = (async (url: string, init: RequestInit) =>
+      url.endsWith("/getChatAdministrators")
+        ? Response.json(
+            { ok: false, description: "Bad Request: chat not found" },
+            { status: 400 },
+          )
+        : tg.fetchImpl(url, init)) as unknown as typeof fetch;
+    await run(store, failing);
+    expect(await store.listDestinations("acct")).toHaveLength(0);
+    expect((await store.getTelegramLink(code))?.destinationId).toBeNull();
   });
 
   it("a /start code in a DM links the DM and sets it as the alert target", async () => {

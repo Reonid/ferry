@@ -130,7 +130,7 @@ Ferry has its own [MCP](https://modelcontextprotocol.io) server, so an AI app ca
 To connect it, add a custom connector with your Ferry's address followed by `/mcp`. The exact address is under Settings → AI assistants on your dashboard.
 
 - **Claude:** Customize → Connectors → Add custom connector.
-- **ChatGPT:** chatgpt.com/plugins, then Add → Add custom MCP server. ChatGPT already lists an unrelated app called Ferry, so give yours another name, such as Ferry for Buffer.
+- **ChatGPT:** chatgpt.com/plugins, then Add → Add custom MCP server. ChatGPT already lists an unrelated app called Ferry, so give yours another name, such as Ferry Crossing. Leave "Buffer" out of it: Buffer's API terms keep its name out of other apps' names.
 
 Then sign in with Buffer when the app asks. The consent screen has an unticked box that lets the app make changes. Tick it only if the app should have the tools marked Yes below.
 
@@ -173,6 +173,14 @@ To install it in Claude, zip the `buffer-and-ferry` folder, so the zip holds the
 - Delete my data, under Settings, deletes your data from Ferry, disconnects every AI app and signs you out. A few records that hold only IDs, such as delivery claims, run out on their own. Nothing changes in Buffer.
 
 The privacy page in the app lists everything Ferry stores and for how long, and it's written from [the code](<app/(app)/privacy/page.tsx>).
+
+## Security
+
+- Signing in with Buffer uses PKCE and a one-time `state`. Connecting Discord checks a `state` too, so no one can attach their webhook to your account, or yours to theirs.
+- Every dashboard action, and every tool an AI app calls, reads and changes only the signed-in account's routes, destinations and deliveries.
+- `/api/tick` does nothing unless QStash signed the request.
+- Only a group's admins can connect a Telegram group, so a member can't post through Ferry's bot into a group that someone else connected.
+- No page of Ferry's can be shown inside another site's frame, and the AI consent screen accepts only its own form.
 
 ## Known limits
 
@@ -257,7 +265,7 @@ npm run lint && npm run typecheck && npm run format:check && npm test
 npm run test:e2e
 ```
 
-`npm test` runs 601 unit tests with Vitest. `npm run test:e2e` runs 49 Playwright tests, each on a desktop and a phone-sized screen. They include axe accessibility checks in light and dark mode, and they run against a seeded account in an in-memory store, so they need no real keys.
+`npm test` runs 615 unit tests with Vitest. `npm run test:e2e` runs 51 Playwright tests, each on a desktop and a phone-sized screen. They include axe accessibility checks in light and dark mode, and they run against a seeded account in an in-memory store, so they need no real keys.
 
 ## Adapted from Sunrise
 

@@ -238,7 +238,8 @@ export default function TelegramConnect({
               <p id={howId} className={ui.hint}>
                 For a channel, post this code there once Ferry is an admin.
                 Ferry asks to delete messages only so it can remove the code
-                post. For a group, Ferry connects as soon as you add it.
+                post. For a group, Ferry connects as soon as one of its admins
+                adds it.
               </p>
               <div className={styles.links}>
                 <a

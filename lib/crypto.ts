@@ -43,10 +43,13 @@ export function decrypt(sealed: string, key: Buffer): string {
   ) {
     throw new Error("Unsupported sealed value");
   }
+  // The full 16-byte tag: without a length, Node also accepts a cut-down tag,
+  // which checks fewer bits.
   const decipher = createDecipheriv(
     "aes-256-gcm",
     key,
     Buffer.from(iv, "base64url"),
+    { authTagLength: 16 },
   );
   decipher.setAuthTag(Buffer.from(tag, "base64url"));
   return Buffer.concat([

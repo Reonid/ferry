@@ -168,7 +168,13 @@ export default async function AuthorizePage(
           )}
           .
         </p>
-        {!LOOPBACK.has(host) && !KNOWN_HOSTS.has(host) && (
+        {LOOPBACK.has(host) || KNOWN_HOSTS.has(host) ? (
+          // A link to this page can come from someone else's chat app, where
+          // they started connecting Ferry, so even a known site gets this.
+          <p className={ui.hint}>
+            Allow only if you started connecting Ferry yourself, just now.
+          </p>
+        ) : (
           <p className={styles.caution}>
             Ferry doesn&apos;t know {host}. Allow only if you started connecting
             Ferry there just now.
