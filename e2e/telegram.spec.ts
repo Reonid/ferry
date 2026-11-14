@@ -1,5 +1,11 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type Locator,
+  type Page,
+  type Request,
+} from "@playwright/test";
 import { tabTo } from "./keyboard";
 
 // playwright.config.ts starts the dev server with this bot's username.
@@ -55,15 +61,22 @@ async function openAdder(page: Page): Promise<Locator> {
 
 /**
  * Resolves once a refresh of the dashboard from the server has fully
- * arrived. Tests that connect wait for it, so no stream outlives the test.
+ * arrived, or the router has cancelled it. Tests that connect wait for it,
+ * so no stream outlives the test.
  */
 async function refreshFinished(page: Page): Promise<void> {
-  const response = await page.waitForResponse(
-    (r) =>
-      new URL(r.url()).pathname === "/app" &&
-      r.request().headers()["rsc"] === "1",
-  );
-  await response.finished();
+  const isRefresh = (r: Request) =>
+    new URL(r.url()).pathname === "/app" && r.headers()["rsc"] === "1";
+  // Next 16.4's router sometimes cancels a refresh's stream just after it
+  // arrives (net::ERR_ABORTED). response.finished() never settles for a
+  // cancelled request, so a cancelled refresh counts as done too.
+  const cancelled = page.waitForEvent("requestfailed", {
+    predicate: isRefresh,
+    timeout: 0,
+  });
+  cancelled.catch(() => {}); // the page can close first
+  const response = await page.waitForResponse((r) => isRefresh(r.request()));
+  await Promise.race([response.finished(), cancelled]);
 }
 
 /**
